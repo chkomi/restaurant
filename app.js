@@ -377,6 +377,22 @@ async function init() {
 
   initTileButtons();
 
+  // 상단 내비게이션: 활성화 토글 (UI용)
+  const nav = document.querySelector('.main-nav');
+  if (nav) {
+    nav.addEventListener('click', (e) => {
+      const btn = e.target.closest('.nav-item');
+      if (!btn) return;
+      nav.querySelectorAll('.nav-item').forEach(b => {
+        b.classList.toggle('active', b === btn);
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      const cat = btn.getAttribute('data-cat');
+      console.log('Category selected:', cat);
+      // TODO: 데이터에 카테고리가 생기면 필터 로직 연결
+    });
+  }
+
   // 클러스터 토글 버튼 바인딩
   const clusterBtn = document.querySelector('.cluster-btn');
   function updateClusterVisibility() {

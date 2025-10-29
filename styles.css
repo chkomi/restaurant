@@ -21,6 +21,68 @@ html, body {
   inset: 0;
 }
 
+/* 상단 배지 + 내비게이션 */
+.top-ui {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 1100;
+  pointer-events: none; /* 내부 요소만 클릭 되도록 */
+}
+
+.site-badge {
+  pointer-events: auto;
+  padding: 6px 14px;
+  background: #111;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.main-nav {
+  pointer-events: auto;
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  backdrop-filter: blur(4px);
+}
+
+.nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+.nav-item:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
+.nav-item:active { transform: translateY(1px); }
+.nav-item.active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+.nav-icon { font-size: 16px; line-height: 1; }
+.nav-text { line-height: 1; }
+
 /* (업로드 툴바 제거) */
 
 /* Tile switcher */

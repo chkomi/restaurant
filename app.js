@@ -20,6 +20,9 @@ let normalLayerGroup;
 let dotLayerGroup;
 let allPoints = [];
 let currentMode = 'dot';
+let userLocationMarker = null;
+let userAccuracyCircle = null;
+let hasUserLocation = false;
 
 const DEFAULT_CSV_PATH = 'restaurant.csv';
 const DENSE_ZOOM_THRESHOLD = 11; // below this, show dots instead of labeled markers
@@ -209,9 +212,10 @@ function getField(row, candidates, fallback = '') {
 }
 
 function createDivIcon(labelText, color) {
+  const darkColor = getDarkerColor(color);
   const icon = L.divIcon({
     className: '',
-    html: `<div class="circle-marker small" style="background:${color}"></div>`,
+    html: `<div class="circle-marker small" style="background:${color}; border-color:${darkColor}"></div>`,
     iconSize: [17, 17],
     iconAnchor: [8.5, 8.5]
   });
@@ -252,7 +256,7 @@ function popupHtml(props, color) {
 
         <div class="popup-header">
           <div class="popup-title">${name || '이름 없음'}</div>
-          <div class="popup-subtitle">${name || 'Restaurant'}</div>
+          ${menu ? `<div class="popup-subtitle">${menu}</div>` : ''}
           <span class="popup-category-badge">식당</span>
         </div>
 
@@ -261,21 +265,16 @@ function popupHtml(props, color) {
         <div class="popup-content">
           ${address ? `
             <div class="popup-info-item">
-              <div class="popup-icon">📍</div>
+              <div class="popup-icon">●</div>
               <div class="popup-text">${address}</div>
             </div>
           ` : ''}
 
-          ${menu ? `
-            <div class="popup-info-item">
-              <div class="popup-icon">ℹ️</div>
-              <div class="popup-text">${menu}</div>
-            </div>
-          ` : ''}
+          
 
           ${visits !== '' ? `
             <div class="popup-info-item">
-              <div class="popup-icon">⭐</div>
+              <div class="popup-icon">★</div>
               <div class="popup-text">방문횟수: ${visits}회</div>
             </div>
           ` : ''}
@@ -446,10 +445,26 @@ async function init() {
 
   initTileButtons();
 
+  // 내 위치로 이동 버튼 바인딩
+  const locateBtn = document.querySelector('.locate-btn');
+  if (locateBtn) {
+    locateBtn.addEventListener('click', () => {
+      locateBtn.classList.add('loading');
+      goToMyLocation().finally(() => locateBtn.classList.remove('loading'));
+    });
+  }
+
+  // 시작 시 내 위치로 자동 이동 (권한 허용 시)
+  goToMyLocation();
+
   const csvUrl = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_PATH;
 
   function finalizeView() {
     toggleDensityMode();
+    if (hasUserLocation) {
+      // 사용자 위치로 이미 이동했으면 데이터 기준 fit을 생략
+      return;
+    }
     if (allPoints.length > 0) {
       try {
         const bounds = L.latLngBounds(allPoints.map(p => p.normal.getLatLng()));
@@ -525,3 +540,58 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// Geolocation: 내 위치로 이동
+function goToMyLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      alert('이 브라우저는 위치 정보를 지원하지 않습니다.');
+      return resolve();
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        const latlng = [latitude, longitude];
+
+        // 기존 마커/정확도 원 제거
+        if (userLocationMarker) {
+          map.removeLayer(userLocationMarker);
+          userLocationMarker = null;
+        }
+        if (userAccuracyCircle) {
+          map.removeLayer(userAccuracyCircle);
+          userAccuracyCircle = null;
+        }
+
+        // 위치 마커 및 정확도 원 추가
+        userLocationMarker = L.circleMarker(latlng, {
+          radius: 6,
+          color: '#1976d2',
+          weight: 2,
+          fillColor: '#1976d2',
+          fillOpacity: 0.9
+        }).addTo(map);
+        if (Number.isFinite(accuracy) && accuracy > 10) {
+          userAccuracyCircle = L.circle(latlng, {
+            radius: Math.min(accuracy, 200),
+            color: '#1976d2',
+            weight: 1,
+            fillColor: '#1976d2',
+            fillOpacity: 0.1
+          }).addTo(map);
+        }
+
+        // 보기 이동
+        map.setView(latlng, Math.max(map.getZoom(), 15), { animate: true });
+        hasUserLocation = true;
+        resolve();
+      },
+      (err) => {
+        console.warn('Geolocation error', err);
+        alert('위치 정보를 가져오지 못했습니다. 위치 권한을 확인해 주세요.');
+        resolve();
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+    );
+  });
+}

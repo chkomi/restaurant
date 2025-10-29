@@ -42,6 +42,31 @@ html, body {
   box-shadow: 0 0 0 2px rgba(139,90,107,0.15);
 }
 
+/* 내 위치로 이동 (FAB) */
+.locate-control {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1000;
+}
+.locate-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #8D6E63;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.locate-btn:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.16); }
+.locate-btn:active { transform: translateY(1px); }
+.locate-btn.loading { opacity: 0.6; pointer-events: none; }
+
 /* Restaurant circle marker (matches reference color + style) */
 .circle-marker {
   width: 17px;
@@ -94,11 +119,10 @@ html, body {
   padding: 0;
 }
 
-.custom-popup .leaflet-popup-tip {
-  background: #F5F2E8; /* 크림/베이지 배경 */
-  border: 2px solid var(--marker-color, #8D6E63); /* 마커 색상과 일치하는 테두리 */
-  border-top: none !important; /* 상단 테두리 제거로 자연스러운 연결 */
-  border-right: none;
+/* 팝업 하단 삼각형(팁) 제거 */
+.custom-popup .leaflet-popup-tip,
+.custom-popup .leaflet-popup-tip-container {
+  display: none !important;
 }
 
 /* 팝업 닫기 버튼 */
@@ -111,7 +135,7 @@ html, body {
   border: none;
   background: none;
   font-size: 18px;
-  color: #8D6E63;
+  color: var(--marker-color, #8D6E63);
   cursor: pointer;
   z-index: 10;
   display: flex;
@@ -127,7 +151,7 @@ html, body {
 
 /* 팝업 카드 레이아웃 */
 .popup-card {
-  padding: 16px 18px 14px 18px;
+  padding: 12px 16px;
   min-width: 240px;
   max-width: 300px;
   position: relative;
@@ -136,22 +160,22 @@ html, body {
 /* 헤더 섹션 */
 .popup-header {
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .popup-title {
   font-size: 18px;
   font-weight: 700;
   color: #3E2723;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   line-height: 1.2;
 }
 
 .popup-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: #8D6E63;
-  margin-bottom: 10px;
-  font-weight: 400;
+  margin-bottom: 6px;
+  font-weight: 500;
 }
 
 .popup-category-badge {
@@ -169,21 +193,21 @@ html, body {
 .popup-divider {
   height: 1px;
   background: #D7CCC8;
-  margin: 12px 0;
+  margin: 8px 0;
   opacity: 0.8;
 }
 
 /* 콘텐츠 섹션 */
 .popup-content {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .popup-info-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 8px;
-  padding: 2px 0;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 0;
 }
 
 .popup-info-item:last-child {
@@ -191,14 +215,15 @@ html, body {
 }
 
 .popup-icon {
-  font-size: 16px;
-  width: 20px;
-  height: 20px;
+  font-size: 14px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
+  color: var(--marker-color, #8D6E63);
 }
 
 .popup-text {
@@ -211,14 +236,14 @@ html, body {
 /* 액션 버튼 */
 .popup-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .popup-action-btn {
   flex: 1;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border: 2px solid var(--marker-color, #8D6E63); /* 마커 색상과 일치 */
-  border-radius: 20px;
+  border-radius: 18px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;

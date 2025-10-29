@@ -46,7 +46,13 @@ html, body {
   letter-spacing: 0.2px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.22);
   border: 1px solid rgba(255,255,255,0.12);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
 }
+.badge-title { font-size: 14px; }
+.badge-sub { font-size: 11px; opacity: 0.8; font-weight: 600; margin-top: 2px; }
 
 /* 하단 네비게이션 (풀폭, 와인색 단색) */
 :root { --wine: #722F37; }

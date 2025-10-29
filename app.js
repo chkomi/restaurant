@@ -31,7 +31,7 @@ const DEFAULT_CSV_PATH = 'restaurant.csv';
 function getDarkerColor(color) {
   // 간단한 색상 매핑
   const colorMap = {
-    '#6B8E5A': '#556B45', // 녹색 -> 더 어두운 녹색
+    '#556B45': '#3F4F33', // 진한 녹색 -> 더 진한 녹색
     '#722F37': '#5A252A', // 와인색 -> 더 어두운 와인색
     '#d7263d': '#B01E30'  // 빨간색 -> 더 어두운 빨간색
   };
@@ -210,7 +210,7 @@ function getField(row, candidates, fallback = '') {
   return fallback;
 }
 
-function createDivIcon(labelText, color) {
+function createDivIcon(labelText, color, showThumb) {
   const safe = String(labelText || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -220,7 +220,10 @@ function createDivIcon(labelText, color) {
   return L.divIcon({
     className: '',
     html: `
-      <div class="tiny-dot" style="color:${color}"></div>
+      <div class="marker-icon">
+        <div class="tiny-dot" style="color:${color}"></div>
+        ${showThumb ? '<div class="dot-badge">👍</div>' : ''}
+      </div>
       ${safe ? `<div class="marker-label" style="color:${color}">${safe}</div>` : ''}
     `,
     iconSize: [10, 10],
@@ -235,7 +238,7 @@ function popupHtml(props, color) {
   const menu = props.menu || '';
   const address = props.address || '';
   const visits = props.visits || '';
-  const markerColor = color || '#6B8E5A';
+  const markerColor = color || '#556B45';
   const darkerColor = getDarkerColor(markerColor);
 
   return `
@@ -281,7 +284,7 @@ function addPoint(lat, lon, props) {
   // Determine color by visit count
   const visitsRaw = props.visits;
   const visits = toNumber(visitsRaw);
-  let color = '#6B8E5A'; // default green
+  let color = '#556B45'; // default: more saturated/dark green
   if (Number.isFinite(visits)) {
     if (visits > 100) color = '#d7263d'; // red
     else if (visits > 10) color = '#722F37'; // wine color (was pink)
@@ -289,8 +292,9 @@ function addPoint(lat, lon, props) {
 
   // Create two markers: one for clustering, one for plain view
   const label = props.name || '';
-  const mCluster = L.marker([lat, lon], { icon: createDivIcon(label, color), markerColor: color });
-  const mPlain = L.marker([lat, lon], { icon: createDivIcon(label, color), markerColor: color });
+  const showThumb = Number.isFinite(visits) && visits > 100;
+  const mCluster = L.marker([lat, lon], { icon: createDivIcon(label, color, showThumb), markerColor: color });
+  const mPlain = L.marker([lat, lon], { icon: createDivIcon(label, color, showThumb), markerColor: color });
 
   // Bind popup to both
   const popupHtmlStr = popupHtml(props, color);

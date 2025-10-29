@@ -1,0 +1,247 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: 'Noto Sans KR', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+/* (업로드 툴바 제거) */
+
+/* Tile switcher */
+.map-tile-control {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 1000;
+}
+.map-tile-control .tile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 36px);
+  gap: 6px;
+  background: rgba(255,255,255,0.9);
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+}
+.map-tile-control .tile-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  cursor: pointer;
+}
+.map-tile-control .tile-btn.active {
+  border-color: #8B5A6B;
+  box-shadow: 0 0 0 2px rgba(139,90,107,0.15);
+}
+
+/* Restaurant circle marker (matches reference color + style) */
+.circle-marker {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  background: #6B8E5A; /* restaurants */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Scaled visual when zoomed-in */
+.circle-marker.small {
+  transform: scale(0.5);
+  transform-origin: center;
+}
+
+/* Label under marker */
+.marker-label {
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  color: #6B8E5A; /* restaurants color */
+  background: transparent;
+}
+
+/* Small dot used at low zoom/when dense */
+.tiny-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6B8E5A;
+}
+
+/* Popup style - 마커 색상별 동적 스타일링 */
+.custom-popup .leaflet-popup-content-wrapper {
+  background: #F5F2E8; /* 크림/베이지 배경 */
+  color: #5D4037;
+  border: 2px solid var(--marker-color, #8D6E63); /* 마커 색상과 일치하는 테두리 */
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.1);
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+
+.custom-popup .leaflet-popup-tip {
+  background: #F5F2E8; /* 크림/베이지 배경 */
+  border: 2px solid var(--marker-color, #8D6E63); /* 마커 색상과 일치하는 테두리 */
+  border-top: none !important; /* 상단 테두리 제거로 자연스러운 연결 */
+  border-right: none;
+}
+
+/* 팝업 닫기 버튼 */
+.popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  font-size: 18px;
+  color: #8D6E63;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.popup-close:hover {
+  background-color: rgba(141, 110, 99, 0.1);
+}
+
+/* 팝업 카드 레이아웃 */
+.popup-card {
+  padding: 20px 20px 16px 20px;
+  min-width: 280px;
+  max-width: 340px;
+  position: relative;
+}
+
+/* 헤더 섹션 */
+.popup-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.popup-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #3E2723;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.popup-subtitle {
+  font-size: 14px;
+  color: #8D6E63;
+  margin-bottom: 12px;
+  font-weight: 400;
+}
+
+.popup-category-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  background: var(--marker-color, #8D6E63); /* 마커 색상과 일치 */
+  color: #F5F2E8;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* 구분선 */
+.popup-divider {
+  height: 1px;
+  background: #D7CCC8;
+  margin: 16px 0;
+  opacity: 0.8;
+}
+
+/* 콘텐츠 섹션 */
+.popup-content {
+  margin-bottom: 16px;
+}
+
+.popup-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 4px 0;
+}
+
+.popup-info-item:last-child {
+  margin-bottom: 0;
+}
+
+.popup-icon {
+  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.popup-text {
+  color: #5D4037;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+/* 액션 버튼 */
+.popup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.popup-action-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid var(--marker-color, #8D6E63); /* 마커 색상과 일치 */
+  border-radius: 25px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.popup-action-btn.secondary {
+  background: transparent;
+  color: var(--marker-color, #8D6E63); /* 마커 색상과 일치 */
+}
+
+.popup-action-btn.secondary:hover {
+  background: var(--marker-color, #8D6E63); /* 마커 색상과 일치 */
+  color: #F5F2E8;
+}
+
+.popup-action-btn.primary {
+  background: var(--marker-color, #8D6E63); /* 마커 색상과 일치 */
+  color: #F5F2E8;
+}
+
+.popup-action-btn.primary:hover {
+  background: var(--marker-color-dark, #5D4037); /* 조금 더 어두운 색상 */
+  border-color: var(--marker-color-dark, #5D4037);
+}

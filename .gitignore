@@ -1,0 +1,8 @@
+# Git 저장소 내의 다른 저장소 제외
+upstream/
+
+# 기타 제외할 파일들
+.DS_Store
+*.log
+node_modules/
+.env

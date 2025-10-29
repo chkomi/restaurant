@@ -1,9 +1,19 @@
+/* Local font: The Jamsil Medium */
+@font-face {
+  font-family: 'The Jamsil';
+  src: url('data/The Jamsil OTF 4 Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
   width: 100%;
-  font-family: 'Noto Sans KR', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family: 'The Jamsil', 'Noto Sans KR', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-weight: 500; /* 기본 Medium 적용 */
 }
 
 #map {

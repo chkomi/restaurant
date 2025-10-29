@@ -77,6 +77,28 @@ html, body {
 .locate-btn:active { transform: translateY(1px); }
 .locate-btn.loading { opacity: 0.6; pointer-events: none; }
 
+/* 클러스터 토글 (좌측 상단) */
+.cluster-control {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 1000;
+}
+.cluster-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+}
+.cluster-btn[aria-pressed="true"] {
+  border-color: #000;
+  color: #fff;
+  background: #000;
+}
+
 /* Restaurant circle marker (matches reference color + style) */
 .circle-marker {
   width: 17px;
@@ -109,12 +131,31 @@ html, body {
   background: transparent;
 }
 
-/* Small dot used at low zoom/when dense */
+/* Ultra-small point marker (0.5px base via transform) */
 .tiny-dot {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #6B8E5A;
+  background: currentColor; /* uses inline color */
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.35); /* subtle halo for visibility */
+}
+
+/* Cluster badge: black background with white number */
+.cluster-badge {
+  background: #000;
+  color: #fff;
+  border-radius: 999px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  border: 2px solid rgba(255,255,255,0.85);
+}
+
+/* Optional wrapper to neutralize default markercluster styles */
+.cluster-icon-wrapper {
+  background: transparent !important;
+  border: none !important;
 }
 
 /* (cluster styles removed; back to original markers) */
@@ -129,6 +170,9 @@ html, body {
   position: relative;
   overflow: hidden;
   padding: 0;
+  /* 전체 팝업 70% 축소 */
+  transform: scale(0.7);
+  transform-origin: bottom center;
 }
 
 /* 팝업 하단 삼각형(팁) 제거 */

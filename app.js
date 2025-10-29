@@ -16,17 +16,16 @@ const tileLayers = {
 };
 
 let map;
-let normalLayerGroup;
-let dotLayerGroup;
+let clusterGroup;
+let plainMarkerLayer;
+let clusterEnabled = true;
 let allPoints = [];
-let currentMode = 'dot';
 let userLocationMarker = null;
 let userAccuracyCircle = null;
 let hasUserLocation = false;
 
 const DEFAULT_CSV_PATH = 'restaurant.csv';
-const DENSE_ZOOM_THRESHOLD = 11; // below this, show dots instead of labeled markers
-const DOT_RADIUS = 1.5; // fixed dot radius when in dot mode
+// Using clustering; individual marker will be ultra-small
 
 // 색상을 더 어둡게 만드는 함수
 function getDarkerColor(color) {
@@ -212,34 +211,24 @@ function getField(row, candidates, fallback = '') {
 }
 
 function createDivIcon(labelText, color) {
-  const darkColor = getDarkerColor(color);
-  const icon = L.divIcon({
+  const safe = String(labelText || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  return L.divIcon({
     className: '',
-    html: `<div class="circle-marker small" style="background:${color}; border-color:${darkColor}"></div>`,
-    iconSize: [17, 17],
-    iconAnchor: [8.5, 8.5]
+    html: `
+      <div class="tiny-dot" style="color:${color}"></div>
+      ${safe ? `<div class="marker-label" style="color:${color}">${safe}</div>` : ''}
+    `,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5]
   });
-  // Attach label after add
-  icon._labelText = labelText;
-  return icon;
 }
 
-function attachLabelOnAdd(marker, label) {
-  marker.on('add', () => {
-    const el = marker._icon;
-    if (!el) return;
-    let labelEl = el.querySelector('.marker-label');
-    if (!labelEl) {
-      labelEl = document.createElement('div');
-      labelEl.className = 'marker-label';
-      el.appendChild(labelEl);
-    }
-    labelEl.textContent = label;
-    // Color label to match marker
-    const color = marker.options && marker.options.markerColor;
-    if (color) labelEl.style.color = color;
-  });
-}
+function attachLabelOnAdd() { /* labels disabled for tiny markers */ }
 
 function popupHtml(props, color) {
   const name = props.name || '';
@@ -298,120 +287,36 @@ function addPoint(lat, lon, props) {
     else if (visits > 10) color = '#722F37'; // wine color (was pink)
   }
 
-  // Normal marker with label (attach on-demand)
+  // Create two markers: one for clustering, one for plain view
   const label = props.name || '';
-  const m = L.marker([lat, lon], { icon: createDivIcon(label, color), markerColor: color });
-  attachLabelOnAdd(m, label);
+  const mCluster = L.marker([lat, lon], { icon: createDivIcon(label, color), markerColor: color });
+  const mPlain = L.marker([lat, lon], { icon: createDivIcon(label, color), markerColor: color });
 
-  // Bind popup with close button functionality
-  const popup = L.popup({ className: 'custom-popup', closeButton: false });
-  popup.setContent(popupHtml(props, color));
-  m.bindPopup(popup);
-
-  // Add close button functionality after popup opens
-  m.on('popupopen', () => {
+  // Bind popup to both
+  const popupHtmlStr = popupHtml(props, color);
+  const popupCluster = L.popup({ className: 'custom-popup', closeButton: false });
+  popupCluster.setContent(popupHtmlStr);
+  mCluster.bindPopup(popupCluster);
+  mCluster.on('popupopen', () => {
     const closeBtn = document.querySelector('.popup-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        m.closePopup();
-      });
-    }
+    if (closeBtn) closeBtn.addEventListener('click', () => mCluster.closePopup());
   });
 
-  // Tiny dot for dense/low zoom
-  const dot = L.circleMarker([lat, lon], {
-    radius: DOT_RADIUS,
-    stroke: false,
-    fill: true,
-    fillColor: color,
-    fillOpacity: 1
-  });
-
-  // Bind popup with close button functionality for dots too
-  const dotPopup = L.popup({ className: 'custom-popup', closeButton: false });
-  dotPopup.setContent(popupHtml(props, color));
-  dot.bindPopup(dotPopup);
-
-  // Add close button functionality for dots
-  dot.on('popupopen', () => {
+  const popupPlain = L.popup({ className: 'custom-popup', closeButton: false });
+  popupPlain.setContent(popupHtmlStr);
+  mPlain.bindPopup(popupPlain);
+  mPlain.on('popupopen', () => {
     const closeBtn = document.querySelector('.popup-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        dot.closePopup();
-      });
-    }
+    if (closeBtn) closeBtn.addEventListener('click', () => mPlain.closePopup());
   });
 
-  allPoints.push({ normal: m, dot, lat, lon });
+  if (clusterGroup) clusterGroup.addLayer(mCluster);
+  if (plainMarkerLayer) plainMarkerLayer.addLayer(mPlain);
+
+  allPoints.push({ clusterMarker: mCluster, plainMarker: mPlain, lat, lon });
 }
 
-const DENSE_POINT_THRESHOLD = 1200;
-
-function refreshNormalMarkersInView() {
-  if (!map) return;
-  normalLayerGroup.clearLayers();
-  const bounds = map.getBounds();
-  const MAX_NORMAL = 1500;
-  let added = 0;
-  for (const p of allPoints) {
-    if (added >= MAX_NORMAL) break;
-    const ll = L.latLng(p.lat, p.lon);
-    if (bounds.contains(ll)) {
-      normalLayerGroup.addLayer(p.normal);
-      added++;
-    }
-  }
-}
-
-function pointsInViewCount() {
-  if (!map) return allPoints.length;
-  const b = map.getBounds();
-  let c = 0;
-  for (const p of allPoints) {
-    if (b.contains([p.lat, p.lon])) c++;
-    if (c > DENSE_POINT_THRESHOLD) break;
-  }
-  return c;
-}
-
-function setMode(mode) {
-  if (mode === currentMode) {
-    if (mode === 'normal') {
-      refreshNormalMarkersInView();
-    } else {
-      // Ensure dots are actually populated when staying in dot mode
-      dotLayerGroup.clearLayers();
-      for (const p of allPoints) dotLayerGroup.addLayer(p.dot);
-      if (!map.hasLayer(dotLayerGroup)) map.addLayer(dotLayerGroup);
-    }
-    return;
-  }
-  if (mode === 'dot') {
-    // switch to dots
-    if (map.hasLayer(normalLayerGroup)) map.removeLayer(normalLayerGroup);
-    dotLayerGroup.clearLayers();
-    for (const p of allPoints) dotLayerGroup.addLayer(p.dot);
-    if (!map.hasLayer(dotLayerGroup)) map.addLayer(dotLayerGroup);
-  } else {
-    // switch to normal
-    if (map.hasLayer(dotLayerGroup)) map.removeLayer(dotLayerGroup);
-    if (!map.hasLayer(normalLayerGroup)) map.addLayer(normalLayerGroup);
-    refreshNormalMarkersInView();
-  }
-  currentMode = mode;
-}
-
-let togglePending = false;
-function toggleDensityMode() {
-  if (togglePending) return;
-  togglePending = true;
-  requestAnimationFrame(() => {
-    togglePending = false;
-    const z = map.getZoom();
-    const dense = z < DENSE_ZOOM_THRESHOLD || pointsInViewCount() > DENSE_POINT_THRESHOLD;
-    setMode(dense ? 'dot' : 'normal');
-  });
-}
+// density toggle removed; clustering handles aggregation
 
 function initTileButtons() {
   const grid = document.querySelector('.map-tile-control');
@@ -438,12 +343,56 @@ async function init() {
   currentTile = tileLayers.cartodb;
   currentTile.addTo(map);
 
-  normalLayerGroup = L.layerGroup();
-  dotLayerGroup = L.layerGroup().addTo(map);
-
-  map.on('zoomend moveend', toggleDensityMode);
+  // Initialize cluster group with custom black-count icon
+  clusterGroup = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    spiderfyOnMaxZoom: true,
+    maxClusterRadius: 45,
+    iconCreateFunction: (cluster) => {
+      const count = cluster.getChildCount();
+      const size = count < 10 ? 24 : count < 100 ? 28 : 34;
+      return L.divIcon({
+        html: `<div class=\"cluster-badge\" style=\"width:${size}px;height:${size}px;line-height:${size}px;\">${count}</div>`,
+        className: 'cluster-icon-wrapper',
+        iconSize: [size, size]
+      });
+    }
+  });
+  clusterGroup.addTo(map);
+  plainMarkerLayer = L.layerGroup();
 
   initTileButtons();
+
+  // 클러스터 토글 버튼 바인딩
+  const clusterBtn = document.querySelector('.cluster-btn');
+  function updateClusterVisibility() {
+    if (clusterEnabled) {
+      if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
+      if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup);
+      if (clusterBtn) {
+        clusterBtn.setAttribute('aria-pressed', 'true');
+        clusterBtn.textContent = '집계 ON';
+      }
+    } else {
+      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+      if (!map.hasLayer(plainMarkerLayer)) map.addLayer(plainMarkerLayer);
+      if (clusterBtn) {
+        clusterBtn.setAttribute('aria-pressed', 'false');
+        clusterBtn.textContent = '집계 OFF';
+      }
+    }
+  }
+  if (clusterBtn) {
+    clusterBtn.addEventListener('click', () => {
+      clusterEnabled = !clusterEnabled;
+      updateClusterVisibility();
+    });
+  }
+  // Initialize visibility + button state
+  updateClusterVisibility();
+
+  // Fixed 1px dots; no zoom-based scaling
 
   // 내 위치로 이동 버튼 바인딩
   const locateBtn = document.querySelector('.locate-btn');
@@ -466,7 +415,7 @@ async function init() {
     }
     if (allPoints.length > 0) {
       try {
-        const bounds = L.latLngBounds(allPoints.map(p => p.normal.getLatLng()));
+        const bounds = L.latLngBounds(allPoints.map(p => L.latLng(p.lat, p.lon)));
         if (bounds.isValid()) map.fitBounds(bounds.pad(0.1));
       } catch {}
     } else {

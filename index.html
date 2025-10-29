@@ -26,12 +26,18 @@
     </div>
   </div>
 
+  <!-- 클러스터 토글 버튼 (좌측 상단) -->
+  <div class="cluster-control">
+    <button class="cluster-btn" aria-pressed="true" title="클러스터링 켜기/끄기">집계 ON</button>
+  </div>
+
   <!-- 내 위치로 이동 버튼 (오른쪽 하단) -->
   <div class="locate-control">
     <button class="locate-btn" title="내 위치로 이동" aria-label="내 위치로 이동">📍</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="app.js"></script>
 </body>

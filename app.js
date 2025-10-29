@@ -19,6 +19,7 @@ let map;
 let clusterGroup;
 let plainMarkerLayer;
 let clusterEnabled = true;
+let activeCategory = 'food';
 let allPoints = [];
 let userLocationMarker = null;
 let userAccuracyCircle = null;
@@ -377,25 +378,35 @@ async function init() {
 
   initTileButtons();
 
-  // 상단 내비게이션: 활성화 토글 (UI용)
-  const nav = document.querySelector('.main-nav');
-  if (nav) {
-    nav.addEventListener('click', (e) => {
+  // 하단 내비게이션: 카테고리 선택 (맛집만 데이터 표시)
+  const bottomNav = document.querySelector('.bottom-nav');
+  if (bottomNav) {
+    bottomNav.addEventListener('click', (e) => {
       const btn = e.target.closest('.nav-item');
       if (!btn) return;
-      nav.querySelectorAll('.nav-item').forEach(b => {
+      bottomNav.querySelectorAll('.nav-item').forEach(b => {
         b.classList.toggle('active', b === btn);
         b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
       });
-      const cat = btn.getAttribute('data-cat');
-      console.log('Category selected:', cat);
-      // TODO: 데이터에 카테고리가 생기면 필터 로직 연결
+      activeCategory = btn.getAttribute('data-cat') || 'food';
+      updateClusterVisibility();
     });
   }
 
   // 클러스터 토글 버튼 바인딩
   const clusterBtn = document.querySelector('.cluster-btn');
   function updateClusterVisibility() {
+    // 맛집 외 카테고리는 베이스맵만 보이게 (레이어 숨김)
+    if (activeCategory !== 'food') {
+      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+      if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
+      if (clusterBtn) {
+        clusterBtn.textContent = '집계 OFF';
+        clusterBtn.setAttribute('aria-pressed', 'false');
+      }
+      return;
+    }
+    // 맛집인 경우: 클러스터 토글 상태에 따라 표시
     if (clusterEnabled) {
       if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
       if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup);

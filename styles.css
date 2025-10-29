@@ -48,40 +48,54 @@ html, body {
   border: 1px solid rgba(255,255,255,0.12);
 }
 
-.main-nav {
-  pointer-events: auto;
+/* 하단 네비게이션 (풀폭, 와인색 단색) */
+:root { --wine: #722F37; }
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: rgba(255,255,255,0.96);
+  border-top: 1px solid #e5e7eb;
   display: flex;
-  gap: 8px;
-  padding: 6px;
-  background: rgba(255,255,255,0.9);
-  border-radius: 14px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-  backdrop-filter: blur(4px);
+  gap: 0;
+  z-index: 1200;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+}
+.bottom-nav .nav-item {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  color: var(--wine);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.bottom-nav .nav-item .nav-icon svg { width: 22px; height: 22px; display: block; }
+.bottom-nav .nav-item.active { font-weight: 800; }
+.bottom-nav .nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--wine);
 }
 
-.nav-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #111;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.15s ease;
-}
-.nav-item:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
-.nav-item:active { transform: translateY(1px); }
-.nav-item.active {
-  background: #111;
-  color: #fff;
-  border-color: #111;
-}
-.nav-icon { font-size: 16px; line-height: 1; }
-.nav-text { line-height: 1; }
+/* FAB가 하단바와 겹치지 않도록 */
+.locate-control { bottom: 80px; }
 
 /* (업로드 툴바 제거) */
 

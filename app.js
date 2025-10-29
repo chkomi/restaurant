@@ -460,7 +460,6 @@ async function init() {
   const csvUrl = new URLSearchParams(location.search).get('csv') || DEFAULT_CSV_PATH;
 
   function finalizeView() {
-    toggleDensityMode();
     if (hasUserLocation) {
       // 사용자 위치로 이미 이동했으면 데이터 기준 fit을 생략
       return;

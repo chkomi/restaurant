@@ -117,6 +117,8 @@ html, body {
   background: #6B8E5A;
 }
 
+/* (cluster styles removed; back to original markers) */
+
 /* Popup style - 마커 색상별 동적 스타일링 */
 .custom-popup .leaflet-popup-content-wrapper {
   background: #F5F2E8; /* 크림/베이지 배경 */

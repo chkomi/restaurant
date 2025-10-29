@@ -176,7 +176,7 @@ html, body {
 /* Popup style - 마커 색상별 동적 스타일링 */
 .custom-popup .leaflet-popup-content-wrapper {
   background: #F5F2E8; /* 크림/베이지 배경 */
-  color: #5D4037;
+  color: var(--marker-color, #8D6E63);
   border: 2px solid var(--marker-color, #8D6E63); /* 마커 색상과 일치하는 테두리 */
   border-radius: 20px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.1);
@@ -301,6 +301,11 @@ html, body {
   line-height: 1.4;
   font-weight: 500;
 }
+
+/* Theme variables applied on Leaflet popup container */
+.leaflet-popup.theme-green { --marker-color: #556B45; --marker-color-dark: #3F4F33; }
+.leaflet-popup.theme-wine  { --marker-color: #722F37; --marker-color-dark: #5A252A; }
+.leaflet-popup.theme-red   { --marker-color: #d7263d; --marker-color-dark: #B01E30; }
 
 /* 액션 버튼 */
 .popup-actions {

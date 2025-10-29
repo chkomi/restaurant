@@ -38,6 +38,14 @@ function getDarkerColor(color) {
   return colorMap[color] || '#5D4037'; // 기본값: 어두운 브라운
 }
 
+function colorKeyFromColor(color) {
+  const c = String(color).toLowerCase();
+  if (c === '#556b45') return 'green';
+  if (c === '#722f37') return 'wine';
+  if (c === '#d7263d') return 'red';
+  return 'green';
+}
+
 // 주소 정제 함수 - 네이버지도 검색에 최적화
 function cleanAddress(address) {
   if (!address) return '';
@@ -242,7 +250,7 @@ function popupHtml(props, color) {
   const darkerColor = getDarkerColor(markerColor);
 
   return `
-    <div class="custom-popup" style="--marker-color: ${markerColor}; --marker-color-dark: ${darkerColor}">
+    <div class="popup-container">
       <div class="popup-card">
         <button class="popup-close">×</button>
 
@@ -298,7 +306,8 @@ function addPoint(lat, lon, props) {
 
   // Bind popup to both
   const popupHtmlStr = popupHtml(props, color);
-  const popupCluster = L.popup({ className: 'custom-popup', closeButton: false });
+  const theme = `theme-${colorKeyFromColor(color)}`;
+  const popupCluster = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
   popupCluster.setContent(popupHtmlStr);
   mCluster.bindPopup(popupCluster);
   mCluster.on('popupopen', () => {
@@ -306,7 +315,7 @@ function addPoint(lat, lon, props) {
     if (closeBtn) closeBtn.addEventListener('click', () => mCluster.closePopup());
   });
 
-  const popupPlain = L.popup({ className: 'custom-popup', closeButton: false });
+  const popupPlain = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
   popupPlain.setContent(popupHtmlStr);
   mPlain.bindPopup(popupPlain);
   mPlain.on('popupopen', () => {

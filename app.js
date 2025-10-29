@@ -378,8 +378,8 @@ async function init() {
   initTileButtons();
 
   // 상단 내비게이션: 활성화 토글 (UI용)
-  const navs = document.querySelectorAll('.main-nav');
-  navs.forEach((nav) => {
+  const nav = document.querySelector('.main-nav');
+  if (nav) {
     nav.addEventListener('click', (e) => {
       const btn = e.target.closest('.nav-item');
       if (!btn) return;
@@ -391,7 +391,7 @@ async function init() {
       console.log('Category selected:', cat);
       // TODO: 데이터에 카테고리가 생기면 필터 로직 연결
     });
-  });
+  }
 
   // 클러스터 토글 버튼 바인딩
   const clusterBtn = document.querySelector('.cluster-btn');

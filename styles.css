@@ -83,48 +83,6 @@ html, body {
 .nav-icon { font-size: 16px; line-height: 1; }
 .nav-text { line-height: 1; }
 
-/* Bottom navigation (inspired by theway2) */
-.main-nav--bottom {
-  position: fixed;
-  left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(560px, calc(100% - 24px));
-  border-radius: 16px;
-  padding: 8px;
-  gap: 0;
-  justify-content: space-between;
-  z-index: 1200;
-}
-.main-nav--bottom .nav-item {
-  flex-direction: column;
-  gap: 4px;
-  width: calc(25% - 4px);
-  border-radius: 12px;
-  border: none;
-  background: transparent;
-  color: #444;
-}
-.main-nav--bottom .nav-item .nav-icon { font-size: 20px; }
-.main-nav--bottom .nav-item.active {
-  background: rgba(17,17,17,0.06);
-  color: #111;
-}
-.main-nav--bottom .nav-item.active::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 28px;
-  height: 3px;
-  border-radius: 2px;
-  background: #111;
-}
-
-/* Lift locate button above bottom nav */
-.locate-control { bottom: 76px; }
-
 /* (업로드 툴바 제거) */
 
 /* Tile switcher */

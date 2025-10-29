@@ -282,7 +282,7 @@ function popupHtml(props, color) {
         </div>
 
         <div class="popup-actions">
-          <button class="popup-action-btn secondary" onclick="openNaverMap('${address}', '${name}')">상세정보</button>
+          <button class="popup-action-btn secondary" onclick="openNaverMap('${address}', '${name}')">네이버지도</button>
         </div>
       </div>
     </div>

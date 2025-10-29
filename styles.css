@@ -127,20 +127,20 @@ html, body {
 
 /* 팝업 카드 레이아웃 */
 .popup-card {
-  padding: 20px 20px 16px 20px;
-  min-width: 280px;
-  max-width: 340px;
+  padding: 16px 18px 14px 18px;
+  min-width: 240px;
+  max-width: 300px;
   position: relative;
 }
 
 /* 헤더 섹션 */
 .popup-header {
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .popup-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: #3E2723;
   margin-bottom: 4px;
@@ -148,42 +148,42 @@ html, body {
 }
 
 .popup-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: #8D6E63;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   font-weight: 400;
 }
 
 .popup-category-badge {
   display: inline-block;
-  padding: 8px 16px;
+  padding: 6px 12px;
   background: var(--marker-color, #8D6E63); /* 마커 색상과 일치 */
   color: #F5F2E8;
-  border-radius: 20px;
-  font-size: 12px;
+  border-radius: 16px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 /* 구분선 */
 .popup-divider {
   height: 1px;
   background: #D7CCC8;
-  margin: 16px 0;
+  margin: 12px 0;
   opacity: 0.8;
 }
 
 /* 콘텐츠 섹션 */
 .popup-content {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .popup-info-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding: 4px 0;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 2px 0;
 }
 
 .popup-info-item:last-child {
@@ -216,10 +216,10 @@ html, body {
 
 .popup-action-btn {
   flex: 1;
-  padding: 10px 16px;
+  padding: 8px 14px;
   border: 2px solid var(--marker-color, #8D6E63); /* 마커 색상과 일치 */
-  border-radius: 25px;
-  font-size: 13px;
+  border-radius: 20px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;

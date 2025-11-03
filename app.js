@@ -19,7 +19,10 @@ let map;
 let plainMarkerLayer;
 let dotLayer; // 5px dot without label (canvas)
 const DENSE_ZOOM_THRESHOLD = 12;
-const DENSE_POINT_THRESHOLD = 1000;
+const HYST_N_ENTER = 1800; // enter dense when exceeding
+const HYST_N_EXIT = 1400;  // exit dense when below
+const DENSE_POINT_THRESHOLD = 1000; // fallback safeguard
+let denseMode = false; // default to label mode when possible
 let activeCategory = 'food';
 let krcLayer;
 let allPoints = [];
@@ -430,11 +433,60 @@ async function init() {
     if (!map || !plainMarkerLayer) return;
     plainMarkerLayer.clearLayers();
     const b = map.getBounds();
-    const MAX_PLAIN = 1200;
-    let added = 0;
+
+    // Grid-based label selection to avoid clutter
+    const cellSize = 64; // px
+    const z = map.getZoom();
+    const labelsPerCell = (z <= 12 ? 1 : z === 13 ? 1 : z === 14 ? 2 : z === 15 ? 3 : 4);
+    const globalMax = (z <= 12 ? 120 : z === 13 ? 180 : z === 14 ? 300 : 450);
+
+    // Collect candidates by cell
+    const cells = new Map();
+    const toKey = (x, y) => `${x}|${y}`;
     for (const p of allPoints) {
-      if (added >= MAX_PLAIN) break;
       if (!b.contains([p.lat, p.lon])) continue;
+      const pt = map.latLngToContainerPoint([p.lat, p.lon]);
+      const cx = Math.floor(pt.x / cellSize);
+      const cy = Math.floor(pt.y / cellSize);
+      const key = toKey(cx, cy);
+      const visitsNum = toNumber(p.props.visits);
+      const score = Number.isFinite(visitsNum) ? visitsNum : 0;
+      const arr = cells.get(key) || [];
+      arr.push({ p, pt, score });
+      cells.set(key, arr);
+    }
+
+    // Collision detection helper (approximate label bbox)
+    const rects = [];
+    const intersects = (a, b) => !(a.x2 < b.x1 || a.x1 > b.x2 || a.y2 < b.y1 || a.y1 > b.y2);
+    const selected = [];
+
+    // Iterate cells and pick top labelsPerCell by score
+    for (const [, arr] of cells) {
+      arr.sort((A, B) => (B.score - A.score) || (String(B.p.label).localeCompare(String(A.p.label))));
+      let taken = 0;
+      for (const it of arr) {
+        if (taken >= labelsPerCell) break;
+        const { p, pt } = it;
+        // Estimate label dimensions
+        const len = (p.label || '').length;
+        const w = Math.min(220, 16 + 7 * len);
+        const h = 16;
+        const yOffset = 20; // label is below the marker
+        const r = { x1: pt.x - w / 2, y1: pt.y + yOffset, x2: pt.x + w / 2, y2: pt.y + yOffset + h };
+        let ok = true;
+        for (const ex of rects) { if (intersects(r, ex)) { ok = false; break; } }
+        if (!ok) continue;
+        rects.push(r);
+        selected.push(p);
+        taken++;
+        if (selected.length >= globalMax) break;
+      }
+      if (selected.length >= globalMax) break;
+    }
+
+    // Add selected markers (build on-demand)
+    for (const p of selected) {
       if (!p.plainMarker) {
         const htmlColor = p.color;
         p.plainMarker = L.marker([p.lat, p.lon], { icon: createDivIcon(p.label, htmlColor, p.showThumb), markerColor: htmlColor });
@@ -449,7 +501,6 @@ async function init() {
         });
       }
       plainMarkerLayer.addLayer(p.plainMarker);
-      added++;
     }
   }
 
@@ -461,8 +512,17 @@ async function init() {
       return;
     }
     const z = map.getZoom();
-    const dense = z < DENSE_ZOOM_THRESHOLD || pointsInViewCount() > DENSE_POINT_THRESHOLD;
-    if (dense) {
+    const n = pointsInViewCount();
+    // Hysteresis logic to avoid flicker
+    let wantDense;
+    if (denseMode) {
+      wantDense = (z < DENSE_ZOOM_THRESHOLD) || (n > HYST_N_EXIT);
+    } else {
+      wantDense = (z < DENSE_ZOOM_THRESHOLD) || (n > HYST_N_ENTER);
+    }
+    denseMode = wantDense;
+
+    if (wantDense) {
       if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
       if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer);
     } else {

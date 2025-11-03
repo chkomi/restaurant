@@ -300,7 +300,7 @@ function createClusterDotIcon(color) {
   });
 }
 
-function popupHtml(props, color, categoryLabel = '식당') {
+function popupHtml(props, color, categoryLabel = '식당', visitsLabel = '방문횟수') {
   const name = props.name || '';
   const menu = props.menu || '';
   const address = props.address || '';
@@ -334,7 +334,7 @@ function popupHtml(props, color, categoryLabel = '식당') {
           ${visits !== '' ? `
             <div class="popup-info-item">
               <div class="popup-icon">★</div>
-              <div class="popup-text">방문횟수: ${visits}회</div>
+              <div class="popup-text">${visitsLabel}: ${visits}회</div>
             </div>
           ` : ''}
         </div>
@@ -705,7 +705,7 @@ async function init() {
       if (!p.plainMarker) {
         const htmlColor = p.color;
         p.plainMarker = L.marker([p.lat, p.lon], { icon: createDivIcon(p.label, htmlColor, p.showThumb), markerColor: htmlColor });
-        const popupHtmlStr = popupHtml(p.props, htmlColor, '식당');
+        const popupHtmlStr = popupHtml(p.props, htmlColor, '식당', '방문횟수');
         const theme = `theme-${colorKeyFromColor(htmlColor)}`;
         const popupPlain = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
         popupPlain.setContent(popupHtmlStr);
@@ -991,12 +991,12 @@ async function init() {
 
   // Load INN points (숙박) similar to restaurants
   function addInnPoint(lat, lon, props) {
-    // visits-based color: <10 green, >=10 wine, >=100 red
+    // visits-based color: <5 green, >=5 wine, >=50 red
     const v = toNumber(props.visits);
     let color = '#556B45';
     if (Number.isFinite(v)) {
-      if (v >= 100) color = '#d7263d';
-      else if (v >= 10) color = '#722F37';
+      if (v >= 50) color = '#d7263d';
+      else if (v >= 5) color = '#722F37';
     }
     const mDot = L.circleMarker([lat, lon], { radius: 2.5, fillColor: color, fillOpacity: 1, stroke: false, interactive: false });
     innDotLayer.addLayer(mDot);

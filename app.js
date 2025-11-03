@@ -16,8 +16,8 @@ const tileLayers = {
 };
 
 let map;
-let clusterGroup;
 let plainMarkerLayer;
+let dotLayer;
 let clusterEnabled = true; // kept for compatibility but not exposed in UI
 const DENSE_ZOOM_THRESHOLD = 12;
 const DENSE_POINT_THRESHOLD = 1000;
@@ -352,19 +352,13 @@ function addPoint(lat, lon, props) {
   // Create two markers: one for clustering, one for plain view
   const label = props.name || '';
   const showThumb = Number.isFinite(visits) && visits > 100;
-  const mCluster = L.marker([lat, lon], { icon: createClusterDotIcon(color), markerColor: color });
+  const mCluster = L.marker([lat, lon], { icon: L.divIcon({ className: '', html: `<div class=\"small-dot\" style=\"color:${color}\"></div>`, iconSize: [5,5], iconAnchor: [2.5,2.5] }), markerColor: color });
   const mPlain = L.marker([lat, lon], { icon: createDivIcon(label, color, showThumb), markerColor: color });
 
   // Bind popup to both
   const popupHtmlStr = popupHtml(props, color);
   const theme = `theme-${colorKeyFromColor(color)}`;
-  const popupCluster = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
-  popupCluster.setContent(popupHtmlStr);
-  mCluster.bindPopup(popupCluster);
-  mCluster.on('popupopen', () => {
-    const closeBtn = document.querySelector('.popup-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => mCluster.closePopup());
-  });
+  // no popup for dense dot
 
   const popupPlain = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
   popupPlain.setContent(popupHtmlStr);
@@ -374,10 +368,12 @@ function addPoint(lat, lon, props) {
     if (closeBtn) closeBtn.addEventListener('click', () => mPlain.closePopup());
   });
 
-  if (clusterGroup) clusterGroup.addLayer(mCluster);
-  if (plainMarkerLayer) plainMarkerLayer.addLayer(mPlain);
+  if (!dotLayer) dotLayer = L.layerGroup();
+  dotLayer.addLayer(mCluster);
+  if (!plainMarkerLayer) plainMarkerLayer = L.layerGroup();
+  plainMarkerLayer.addLayer(mPlain);
 
-  allPoints.push({ clusterMarker: mCluster, plainMarker: mPlain, lat, lon });
+  allPoints.push({ dotMarker: mCluster, plainMarker: mPlain, lat, lon });
 }
 
 // density toggle removed; clustering handles aggregation
@@ -407,24 +403,9 @@ async function init() {
   currentTile = tileLayers.cartodb;
   currentTile.addTo(map);
 
-  // Initialize cluster group with custom black-count icon
-  clusterGroup = L.markerClusterGroup({
-    showCoverageOnHover: false,
-    zoomToBoundsOnClick: true,
-    spiderfyOnMaxZoom: true,
-    maxClusterRadius: 45,
-    iconCreateFunction: (cluster) => {
-      const count = cluster.getChildCount();
-      const size = count < 10 ? 24 : count < 100 ? 28 : 34;
-      return L.divIcon({
-        html: `<div class=\"cluster-badge\" style=\"width:${size}px;height:${size}px;line-height:${size}px;\">${count}</div>`,
-        className: 'cluster-icon-wrapper',
-        iconSize: [size, size]
-      });
-    }
-  });
-  clusterGroup.addTo(map);
+  // Initialize layers for density switching
   plainMarkerLayer = L.layerGroup();
+  dotLayer = L.layerGroup();
   krcLayer = L.layerGroup().addTo(map);
 
   initTileButtons();
@@ -459,7 +440,7 @@ async function init() {
   function updateClusterVisibility() {
     // 맛집 외 카테고리는 베이스맵만 보이게 (레이어 숨김)
     if (activeCategory !== 'food') {
-      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+      if (map.hasLayer(dotLayer)) map.removeLayer(dotLayer);
       if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
       return;
     }
@@ -467,9 +448,9 @@ async function init() {
     const dense = z < DENSE_ZOOM_THRESHOLD || pointsInViewCount() > DENSE_POINT_THRESHOLD;
     if (dense) {
       if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
-      if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup);
+      if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer);
     } else {
-      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
+      if (map.hasLayer(dotLayer)) map.removeLayer(dotLayer);
       if (!map.hasLayer(plainMarkerLayer)) map.addLayer(plainMarkerLayer);
     }
   }

@@ -229,23 +229,7 @@ html, body {
   background: currentColor;
 }
 
-/* Cluster badge: black background with white number */
-.cluster-badge {
-  background: #000;
-  color: #fff;
-  border-radius: 999px;
-  text-align: center;
-  font-weight: 700;
-  font-size: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
-  border: 2px solid rgba(255,255,255,0.85);
-}
-
-/* Optional wrapper to neutralize default markercluster styles */
-.cluster-icon-wrapper {
-  background: transparent !important;
-  border: none !important;
-}
+/* (cluster styles removed; using density-based dot layer instead) */
 
 /* (cluster styles removed; back to original markers) */
 

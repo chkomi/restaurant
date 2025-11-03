@@ -242,18 +242,41 @@ function createDivIcon(labelText, color, showThumb) {
   });
 }
 
-function createStarIcon() {
-  // 10px red star as inline SVG
-  const svg = `
-    <svg viewBox="0 0 24 24" width="10" height="10" fill="#d7263d" aria-hidden="true">
-      <path d="M12 2l2.9 6.2 6.8.6-5 4.4 1.5 6.7L12 16.9 5.8 20l1.5-6.7-5-4.4 6.8-.6L12 2z"/>
-    </svg>`;
-  return L.divIcon({
-    className: '',
-    html: svg,
-    iconSize: [10, 10],
-    iconAnchor: [5, 5]
-  });
+function createKrcIcon(labelText) {
+  const safe = String(labelText || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  const html = `
+    <div class="marker-icon">
+      <svg viewBox="0 0 24 24" width="10" height="10" fill="#d7263d" aria-hidden="true">
+        <path d="M12 2l2.9 6.2 6.8.6-5 4.4 1.5 6.7L12 16.9 5.8 20l1.5-6.7-5-4.4 6.8-.6L12 2z"/>
+      </svg>
+    </div>
+    ${safe ? `<div class="marker-label krc-label">${safe}</div>` : ''}
+  `;
+  return L.divIcon({ className: '', html, iconSize: [10,10], iconAnchor: [5,5] });
+}
+
+function popupKrcHtml(name, address) {
+  const safeName = String(name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const safeAddr = String(address || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return `
+    <div class="popup-card" style="padding:10px 14px; min-width:220px;">
+      ${safeName ? `<div class="popup-title" style="margin-bottom:6px;">${safeName}</div>` : ''}
+      ${safeAddr ? `
+        <div class="popup-info-item" style="margin-bottom:10px;">
+          <div class="popup-icon">📍</div>
+          <div class="popup-text">${safeAddr}</div>
+        </div>
+      ` : ''}
+      <div class="popup-actions">
+        <button class="popup-action-btn secondary" onclick="openNaverMap('${safeAddr}', '${safeName}')">네이버지도</button>
+      </div>
+    </div>
+  `;
 }
 
 function attachLabelOnAdd() { /* labels disabled for tiny markers */ }
@@ -544,8 +567,15 @@ async function init() {
   }
 
   // Load KRC points as red stars (10px)
-  function addKrcPoint(lat, lon) {
-    const m = L.marker([lat, lon], { icon: createStarIcon() });
+  function addKrcPoint(lat, lon, props) {
+    const name = props.name || '';
+    const address = props.address || '';
+    const m = L.marker([lat, lon], { icon: createKrcIcon(name) });
+    // KRC popup: address + Naver button, themed red
+    const p = L.popup({ className: 'custom-popup theme-red', closeButton: false });
+    p.setContent(popupKrcHtml(name, address));
+    m.bindPopup(p);
+    // close button hook if ever added (reuse existing close-button logic if needed)
     if (krcLayer) krcLayer.addLayer(m);
   }
   function parseKrcRows(rows) {
@@ -554,7 +584,9 @@ async function init() {
       const ll = resolveLatLng(row);
       if (!ll) return;
       const [lat, lon] = ll;
-      addKrcPoint(lat, lon);
+      const name = getField(row, ['구분', 'name', '이름', '지점', '지사']);
+      const address = getField(row, ['주소', 'address']);
+      addKrcPoint(lat, lon, { name, address });
       count++;
     });
     return count;

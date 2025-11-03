@@ -448,12 +448,20 @@ async function init() {
             if (r.ok) { gj = await r.json(); break; }
           } catch {}
         }
-        if (gj && typeof proj4 !== 'undefined') {
-          const def5179 = '+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs';
-          const toWgs = (xy) => {
-            const out = proj4(def5179, proj4.WGS84, xy);
-            return [out[1], out[0]]; // return [lat, lon]
-          };
+        if (gj) {
+          // proj4 may be undefined if CDN blocked; handle both 5179 and already-WGS84 inputs
+          const hasProj4 = (typeof proj4 !== 'undefined');
+          let toWgs;
+          if (hasProj4) {
+            const def5179 = '+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs';
+            toWgs = (xy, assumeWgs84) => {
+              if (assumeWgs84) return [xy[1], xy[0]]; // already [lon,lat] -> [lat,lon]
+              const out = proj4(def5179, proj4.WGS84, xy);
+              return [out[1], out[0]]; // [lat, lon]
+            };
+          } else {
+            toWgs = (xy) => [xy[1], xy[0]]; // assume already WGS84 lon/lat
+          }
           const feats = Array.isArray(gj.features) ? gj.features : [];
           const idx = [];
           for (const f of feats) {
@@ -475,8 +483,10 @@ async function init() {
             };
             walk(coords);
             if (Number.isFinite(minx) && Number.isFinite(miny) && Number.isFinite(maxx) && Number.isFinite(maxy)) {
-              const sw = toWgs([minx, miny]);
-              const ne = toWgs([maxx, maxy]);
+              // Heuristic: if coordinates look like lon/lat already, skip transform
+              const looksLikeWgs84 = Math.abs(minx) <= 180 && Math.abs(maxx) <= 180 && Math.abs(miny) <= 90 && Math.abs(maxy) <= 90;
+              const sw = toWgs([minx, miny], looksLikeWgs84);
+              const ne = toWgs([maxx, maxy], looksLikeWgs84);
               idx.push({
                 name: String(name || ''),
                 altNames: [String(ctp ? `${ctp} ${name}` : name)].filter(Boolean),

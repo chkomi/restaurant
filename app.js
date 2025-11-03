@@ -793,8 +793,13 @@ async function init() {
 
   // Load INN points (숙박) similar to restaurants
   function addInnPoint(lat, lon, props) {
-    // base dot
-    const color = '#722F37'; // wine for inns by default
+    // visits-based color: <10 green, >=10 wine, >=100 red
+    const v = toNumber(props.visits);
+    let color = '#556B45';
+    if (Number.isFinite(v)) {
+      if (v >= 100) color = '#d7263d';
+      else if (v >= 10) color = '#722F37';
+    }
     const mDot = L.circleMarker([lat, lon], { radius: 2.5, fillColor: color, fillOpacity: 1, stroke: false, interactive: false });
     innDotLayer.addLayer(mDot);
     const label = props.name || '';
@@ -806,9 +811,18 @@ async function init() {
       const ll = resolveLatLng(row);
       if (!ll) return;
       const [lat, lon] = ll;
-      const name = getField(row, ['name', '이름', '시설명', '숙소명', '업체명']);
+      let name = getField(row, ['name', '이름', '시설명', '숙소명', '업체명']);
+      if (!name) {
+        // Fallback: second column value as inn name
+        const keys = Object.keys(row);
+        if (keys.length >= 2) {
+          const k = keys[1];
+          if (row[k] != null && String(row[k]).trim() !== '') name = String(row[k]).trim();
+        }
+      }
       const address = getField(row, ['address', '주소', '도로명주소', '지번주소']);
-      addInnPoint(lat, lon, { name, address });
+      const visits = getField(row, ['방문횟수', '방문', 'count', 'counts', 'visits', 'visit']);
+      addInnPoint(lat, lon, { name, address, visits });
       count++;
     });
     return count;

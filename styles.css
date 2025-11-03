@@ -410,7 +410,7 @@ html, body {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(64px + env(safe-area-inset-bottom));
+  bottom: calc(108px + env(safe-area-inset-bottom));
   width: min(560px, calc(100% - 24px));
   z-index: 1200;
 }
@@ -439,4 +439,5 @@ html, body {
   cursor: pointer;
   font-size: 16px;
 }
+.search-btn svg { width: 18px; height: 18px; display: block; fill: var(--wine, #722F37); }
 .search-form.loading { opacity: 0.6; pointer-events: none; }

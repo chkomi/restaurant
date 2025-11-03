@@ -427,17 +427,30 @@ async function init() {
   const searchForm = document.querySelector('.bottom-search .search-form');
   const searchInput = document.querySelector('.bottom-search .search-input');
   if (searchForm && searchInput) {
-    async function geocodeAdmin(q) {
-      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=kr&addressdetails=1&extratags=1&limit=5&q=${encodeURIComponent(q)}`;
+    async function geocodeAdminOnce(q) {
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=kr&addressdetails=1&extratags=1&limit=8&q=${encodeURIComponent(q)}`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'ko' } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const list = await res.json();
       const allowed = new Set(['4','5','6','7','8','9','10']);
-      const filtered = (list || []).filter(r =>
-        (r.class === 'boundary' && r.type === 'administrative') &&
-        (r.extratags && r.extratags.admin_level && allowed.has(String(r.extratags.admin_level)))
+      const inKR = (r) => (r.address && r.address.country_code === 'kr') || (String(r.display_name||'').includes('대한민국'));
+      const isAdminBoundary = (r) => r.class === 'boundary' && r.type === 'administrative' && (
+        (r.extratags && r.extratags.admin_level && allowed.has(String(r.extratags.admin_level))) ||
+        (r.admin_level && allowed.has(String(r.admin_level)))
       );
-      return filtered;
+      const isPlace = (r) => r.class === 'place' && ['city','county','district','town','village','hamlet','suburb','municipality'].includes(String(r.type));
+      const admins = (list || []).filter(r => inKR(r) && isAdminBoundary(r));
+      if (admins.length) return admins;
+      const places = (list || []).filter(r => inKR(r) && isPlace(r));
+      return places;
+    }
+    async function geocodeAdmin(q) {
+      let r = await geocodeAdminOnce(q);
+      if (!r || r.length === 0) {
+        // retry with country bias appended
+        r = await geocodeAdminOnce(`${q} 대한민국`);
+      }
+      return r;
     }
     async function onSearch(e) {
       e.preventDefault();
@@ -451,7 +464,7 @@ async function init() {
           alert('행정구역(시/도, 시/군/구, 읍/면/동/리)만 검색할 수 있습니다.');
           return;
         }
-        if (r.boundingbox) {
+        if (r && r.boundingbox) {
           const [south, north, west, east] = r.boundingbox.map(Number);
           const bounds = L.latLngBounds([ [south, west], [north, east] ]);
           if (bounds.isValid()) {
@@ -459,7 +472,7 @@ async function init() {
             return;
           }
         }
-        if (r.lat && r.lon) {
+        if (r && r.lat && r.lon) {
           map.setView([Number(r.lat), Number(r.lon)], Math.max(map.getZoom(), 12), { animate: true });
         }
       } catch(err) {

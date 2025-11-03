@@ -221,6 +221,14 @@ html, body {
   box-shadow: 0 0 0 0.5px rgba(0,0,0,0.35); /* subtle halo for visibility */
 }
 
+/* Small 5px dot for clustered view */
+.small-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 /* Cluster badge: black background with white number */
 .cluster-badge {
   background: #000;

@@ -18,7 +18,9 @@ const tileLayers = {
 let map;
 let clusterGroup;
 let plainMarkerLayer;
-let clusterEnabled = true;
+let clusterEnabled = true; // kept for compatibility but not exposed in UI
+const DENSE_ZOOM_THRESHOLD = 12;
+const DENSE_POINT_THRESHOLD = 1000;
 let activeCategory = 'food';
 let krcLayer;
 let allPoints = [];
@@ -281,6 +283,15 @@ function popupKrcHtml(name, address) {
 
 function attachLabelOnAdd() { /* labels disabled for tiny markers */ }
 
+function createClusterDotIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="small-dot" style="color:${color}"></div>`,
+    iconSize: [5, 5],
+    iconAnchor: [2.5, 2.5]
+  });
+}
+
 function popupHtml(props, color) {
   const name = props.name || '';
   const menu = props.menu || '';
@@ -341,7 +352,7 @@ function addPoint(lat, lon, props) {
   // Create two markers: one for clustering, one for plain view
   const label = props.name || '';
   const showThumb = Number.isFinite(visits) && visits > 100;
-  const mCluster = L.marker([lat, lon], { icon: createDivIcon(label, color, showThumb), markerColor: color });
+  const mCluster = L.marker([lat, lon], { icon: createClusterDotIcon(color), markerColor: color });
   const mPlain = L.marker([lat, lon], { icon: createDivIcon(label, color, showThumb), markerColor: color });
 
   // Bind popup to both
@@ -434,43 +445,37 @@ async function init() {
   }
 
   // 클러스터 토글 버튼 바인딩
-  const clusterBtn = document.querySelector('.cluster-btn');
+  function pointsInViewCount() {
+    if (!map) return allPoints.length;
+    const b = map.getBounds();
+    let c = 0;
+    for (const p of allPoints) {
+      if (b.contains([p.lat, p.lon])) c++;
+      if (c > DENSE_POINT_THRESHOLD) break;
+    }
+    return c;
+  }
+
   function updateClusterVisibility() {
     // 맛집 외 카테고리는 베이스맵만 보이게 (레이어 숨김)
     if (activeCategory !== 'food') {
       if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
       if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
-      if (clusterBtn) {
-        clusterBtn.textContent = '집계 OFF';
-        clusterBtn.setAttribute('aria-pressed', 'false');
-      }
       return;
     }
-    // 맛집인 경우: 클러스터 토글 상태에 따라 표시
-    if (clusterEnabled) {
+    const z = map.getZoom();
+    const dense = z < DENSE_ZOOM_THRESHOLD || pointsInViewCount() > DENSE_POINT_THRESHOLD;
+    if (dense) {
       if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
       if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup);
-      if (clusterBtn) {
-        clusterBtn.setAttribute('aria-pressed', 'true');
-        clusterBtn.textContent = '집계 ON';
-      }
     } else {
       if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup);
       if (!map.hasLayer(plainMarkerLayer)) map.addLayer(plainMarkerLayer);
-      if (clusterBtn) {
-        clusterBtn.setAttribute('aria-pressed', 'false');
-        clusterBtn.textContent = '집계 OFF';
-      }
     }
-  }
-  if (clusterBtn) {
-    clusterBtn.addEventListener('click', () => {
-      clusterEnabled = !clusterEnabled;
-      updateClusterVisibility();
-    });
   }
   // Initialize visibility + button state
   updateClusterVisibility();
+  map.on('zoomend moveend', updateClusterVisibility);
 
   // Fixed 1px dots; no zoom-based scaling
 

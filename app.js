@@ -736,7 +736,7 @@ async function init() {
       const cx = Math.floor(pt.x / cellSize);
       const cy = Math.floor(pt.y / cellSize);
       const key = toKey(cx, cy);
-      const score = 0;
+      const score = Number.isFinite(toNumber(p.props && p.props.visits)) ? toNumber(p.props.visits) : 0;
       const arr = cells.get(key) || [];
       arr.push({ p, pt, score });
       cells.set(key, arr);
@@ -777,7 +777,7 @@ async function init() {
       if (!p.plainMarker){
         const htmlColor = p.color;
         p.plainMarker = L.marker([p.lat,p.lon], { icon: createDivIcon(p.label, htmlColor, false), markerColor: htmlColor });
-        const popupHtmlStr = popupHtml(p.props, htmlColor, '숙박');
+        const popupHtmlStr = popupHtml(p.props, htmlColor, '숙박', '이용횟수');
         const theme = `theme-${colorKeyFromColor(htmlColor)}`;
         const pop = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
         pop.setContent(popupHtmlStr);

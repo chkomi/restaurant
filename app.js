@@ -564,6 +564,17 @@ async function init() {
       }
       if (selected.length>=globalMax) break;
     }
+    // Fallback: if nothing selected (e.g., very small viewport or degenerate layout), pick first few in-bounds
+    if (selected.length === 0) {
+      const fallback = [];
+      for (const p of innAllPoints) {
+        if (!b.contains([p.lat, p.lon])) continue;
+        fallback.push(p);
+        if (fallback.length >= 40) break;
+      }
+      selected.push(...fallback);
+    }
+
     for (const p of selected){
       if (!p.plainMarker){
         const htmlColor = p.color;

@@ -351,7 +351,7 @@ function addPoint(lat, lon, props) {
     else if (visits > 10) color = '#722F37'; // wine color (was pink)
   }
 
-  // Dense-mode marker: lightweight canvas circle (5px)
+  // Dense-mode marker: lightweight canvas circle (5px base, zoom-scaled)
   const mDot = L.circleMarker([lat, lon], {
     radius: 2.5,
     fillColor: color,
@@ -365,7 +365,7 @@ function addPoint(lat, lon, props) {
   // Save point; plain marker is created on-demand in sparse mode
   const label = props.name || '';
   const showThumb = Number.isFinite(visits) && visits > 100;
-  allPoints.push({ lat, lon, props, color, label, showThumb, plainMarker: null });
+  allPoints.push({ lat, lon, props, color, label, showThumb, plainMarker: null, dotMarker: mDot });
 }
 
 // density toggle removed; clustering handles aggregation
@@ -397,7 +397,7 @@ async function init() {
 
   // Initialize layers for density switching
   plainMarkerLayer = L.layerGroup();
-  dotLayer = L.layerGroup();
+  dotLayer = L.layerGroup().addTo(map); // always keep base dots visible
   krcLayer = L.layerGroup().addTo(map);
 
   initTileButtons();
@@ -507,7 +507,8 @@ async function init() {
   function updateClusterVisibility() {
     // 맛집 외 카테고리는 베이스맵만 보이게 (레이어 숨김)
     if (activeCategory !== 'food') {
-      if (map.hasLayer(dotLayer)) map.removeLayer(dotLayer);
+      // Keep base dots always visible to hint presence
+      if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer);
       if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
       return;
     }
@@ -526,17 +527,40 @@ async function init() {
       if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
       if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer);
     } else {
-      if (map.hasLayer(dotLayer)) map.removeLayer(dotLayer);
+      if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer); // keep base dots
       if (!map.hasLayer(plainMarkerLayer)) map.addLayer(plainMarkerLayer);
       refreshPlainMarkersInView();
     }
   }
   // Initialize visibility + button state
   updateClusterVisibility();
-  map.on('zoomend moveend', () => {
+  // Zoom-based base dot size scaling (all dots remain visible)
+  let currentDotRadius = null;
+  function desiredDotRadiusForZoom(z) {
+    if (z <= 8) return 1.5;
+    if (z <= 10) return 2.0;
+    if (z <= 12) return 2.5;
+    if (z <= 14) return 3.0;
+    if (z <= 15) return 4.0;
+    return 5.0;
+  }
+  function applyDotRadius() {
+    const z = map.getZoom();
+    const r = desiredDotRadiusForZoom(z);
+    if (currentDotRadius === r) return;
+    currentDotRadius = r;
+    for (const p of allPoints) {
+      if (p.dotMarker) p.dotMarker.setRadius(r);
+    }
+  }
+  function handleViewChange() {
     updateClusterVisibility();
+    applyDotRadius();
     if (map.hasLayer(plainMarkerLayer)) refreshPlainMarkersInView();
-  });
+  }
+  map.on('zoomend moveend', handleViewChange);
+  // initial dot radius
+  setTimeout(applyDotRadius, 0);
 
   // Fixed 1px dots; no zoom-based scaling
 

@@ -20,12 +20,14 @@ let clusterGroup;
 let plainMarkerLayer;
 let clusterEnabled = true;
 let activeCategory = 'food';
+let krcLayer;
 let allPoints = [];
 let userLocationMarker = null;
 let userAccuracyCircle = null;
 let hasUserLocation = false;
 
 const DEFAULT_CSV_PATH = 'restaurant.csv';
+const KRC_CSV_PATH = 'krc.csv';
 // Using clustering; individual marker will be ultra-small
 
 // 색상을 더 어둡게 만드는 함수
@@ -240,6 +242,20 @@ function createDivIcon(labelText, color, showThumb) {
   });
 }
 
+function createStarIcon() {
+  // 10px red star as inline SVG
+  const svg = `
+    <svg viewBox="0 0 24 24" width="10" height="10" fill="#d7263d" aria-hidden="true">
+      <path d="M12 2l2.9 6.2 6.8.6-5 4.4 1.5 6.7L12 16.9 5.8 20l1.5-6.7-5-4.4 6.8-.6L12 2z"/>
+    </svg>`;
+  return L.divIcon({
+    className: '',
+    html: svg,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5]
+  });
+}
+
 function attachLabelOnAdd() { /* labels disabled for tiny markers */ }
 
 function popupHtml(props, color) {
@@ -375,6 +391,7 @@ async function init() {
   });
   clusterGroup.addTo(map);
   plainMarkerLayer = L.layerGroup();
+  krcLayer = L.layerGroup().addTo(map);
 
   initTileButtons();
 
@@ -524,6 +541,30 @@ async function init() {
     console.error('CSV load error', err);
     // 안내: file:// 로 열면 브라우저 보안상 restaurant.csv를 자동으로 읽을 수 없습니다.
     // 간단 서버로 열어주세요. 예) python3 -m http.server 8000
+  }
+
+  // Load KRC points as red stars (10px)
+  function addKrcPoint(lat, lon) {
+    const m = L.marker([lat, lon], { icon: createStarIcon() });
+    if (krcLayer) krcLayer.addLayer(m);
+  }
+  function parseKrcRows(rows) {
+    let count = 0;
+    rows.forEach((row) => {
+      const ll = resolveLatLng(row);
+      if (!ll) return;
+      const [lat, lon] = ll;
+      addKrcPoint(lat, lon);
+      count++;
+    });
+    return count;
+  }
+  try {
+    const krcRows = await parseCsvFromUrl(KRC_CSV_PATH);
+    const krcAdded = parseKrcRows(krcRows);
+    if (krcAdded === 0) console.warn('No KRC points found in', KRC_CSV_PATH);
+  } catch (err) {
+    console.warn('KRC CSV load error', err);
   }
 }
 

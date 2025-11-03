@@ -16,8 +16,10 @@ const tileLayers = {
 };
 
 let map;
-let plainMarkerLayer;
-let dotLayer; // 5px dot without label (canvas)
+let plainMarkerLayer; // restaurants: 10px + label
+let dotLayer;        // restaurants: 5px dots
+let innPlainLayer;   // inns: 10px + label
+let innDotLayer;     // inns: 5px dots
 const DENSE_ZOOM_THRESHOLD = 12;
 const HYST_N_ENTER = 1800; // enter dense when exceeding
 const HYST_N_EXIT = 1400;  // exit dense when below
@@ -25,13 +27,15 @@ const DENSE_POINT_THRESHOLD = 1000; // fallback safeguard
 let denseMode = false; // default to label mode when possible
 let activeCategory = 'food';
 let krcLayer;
-let allPoints = [];
+let allPoints = [];      // restaurants
+let innAllPoints = [];   // inns
 let userLocationMarker = null;
 let userAccuracyCircle = null;
 let hasUserLocation = false;
 
 const DEFAULT_CSV_PATH = 'restaurant.csv';
 const KRC_CSV_PATH = 'krc.csv';
+const INN_CSV_PATH = 'inn.csv';
 // Density-based rendering; dot layer for dense view
 
 // 색상을 더 어둡게 만드는 함수
@@ -395,9 +399,11 @@ async function init() {
   currentTile = tileLayers.cartodb;
   currentTile.addTo(map);
 
-  // Initialize layers for density switching
+  // Initialize layers for density switching (per-category)
   plainMarkerLayer = L.layerGroup();
-  dotLayer = L.layerGroup().addTo(map); // always keep base dots visible
+  dotLayer = L.layerGroup();
+  innPlainLayer = L.layerGroup();
+  innDotLayer = L.layerGroup();
   krcLayer = L.layerGroup().addTo(map);
 
   initTileButtons();
@@ -423,6 +429,17 @@ async function init() {
     const b = map.getBounds();
     let c = 0;
     for (const p of allPoints) {
+      if (b.contains([p.lat, p.lon])) c++;
+      if (c > DENSE_POINT_THRESHOLD) break;
+    }
+    return c;
+  }
+
+  function pointsInViewCountInn() {
+    if (!map) return innAllPoints.length;
+    const b = map.getBounds();
+    let c = 0;
+    for (const p of innAllPoints) {
       if (b.contains([p.lat, p.lon])) c++;
       if (c > DENSE_POINT_THRESHOLD) break;
     }
@@ -504,32 +521,106 @@ async function init() {
     }
   }
 
-  function updateClusterVisibility() {
-    // 맛집 외 카테고리는 베이스맵만 보이게 (레이어 숨김)
-    if (activeCategory !== 'food') {
-      // Keep base dots always visible to hint presence
-      if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer);
-      if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
-      return;
-    }
+  function refreshInnPlainMarkersInView() {
+    if (!map || !innPlainLayer) return;
+    innPlainLayer.clearLayers();
+    const b = map.getBounds();
+    const cellSize = 64;
     const z = map.getZoom();
-    const n = pointsInViewCount();
-    // Hysteresis logic to avoid flicker
-    let wantDense;
-    if (denseMode) {
-      wantDense = (z < DENSE_ZOOM_THRESHOLD) || (n > HYST_N_EXIT);
-    } else {
-      wantDense = (z < DENSE_ZOOM_THRESHOLD) || (n > HYST_N_ENTER);
-    }
-    denseMode = wantDense;
+    const labelsPerCell = (z <= 12 ? 1 : z === 13 ? 1 : z === 14 ? 2 : z === 15 ? 3 : 4);
+    const globalMax = (z <= 12 ? 120 : z === 13 ? 180 : z === 14 ? 300 : 450);
 
-    if (wantDense) {
-      if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
-      if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer);
+    const cells = new Map();
+    const toKey = (x,y)=>`${x}|${y}`;
+    for (const p of innAllPoints) {
+      if (!b.contains([p.lat, p.lon])) continue;
+      const pt = map.latLngToContainerPoint([p.lat, p.lon]);
+      const cx = Math.floor(pt.x / cellSize);
+      const cy = Math.floor(pt.y / cellSize);
+      const key = toKey(cx, cy);
+      const score = 0;
+      const arr = cells.get(key) || [];
+      arr.push({ p, pt, score });
+      cells.set(key, arr);
+    }
+    const rects = [];
+    const intersects = (a,b)=>!(a.x2<b.x1||a.x1>b.x2||a.y2<b.y1||a.y1>b.y2);
+    const selected = [];
+    for (const [,arr] of cells) {
+      arr.sort((A,B)=> (B.score-A.score) || (String(B.p.label).localeCompare(String(A.p.label))));
+      let taken=0;
+      for (const it of arr){
+        if (taken>=labelsPerCell) break;
+        const {p, pt} = it;
+        const len = (p.label||'').length;
+        const w = Math.min(220, 16 + 7*len);
+        const h = 16;
+        const yOffset = 20;
+        const r = { x1: pt.x - w/2, y1: pt.y + yOffset, x2: pt.x + w/2, y2: pt.y + yOffset + h };
+        let ok = true; for (const ex of rects){ if (intersects(r,ex)){ ok=false; break; } }
+        if (!ok) continue;
+        rects.push(r); selected.push(p); taken++;
+        if (selected.length>=globalMax) break;
+      }
+      if (selected.length>=globalMax) break;
+    }
+    for (const p of selected){
+      if (!p.plainMarker){
+        const htmlColor = p.color;
+        p.plainMarker = L.marker([p.lat,p.lon], { icon: createDivIcon(p.label, htmlColor, false), markerColor: htmlColor });
+        const popupHtmlStr = popupHtml(p.props, htmlColor);
+        const theme = `theme-${colorKeyFromColor(htmlColor)}`;
+        const pop = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
+        pop.setContent(popupHtmlStr);
+        p.plainMarker.bindPopup(pop);
+        p.plainMarker.on('popupopen', ()=>{
+          const closeBtn = document.querySelector('.popup-close');
+          if (closeBtn) closeBtn.addEventListener('click', ()=> p.plainMarker && p.plainMarker.closePopup());
+        });
+      }
+      innPlainLayer.addLayer(p.plainMarker);
+    }
+  }
+
+  function updateClusterVisibility() {
+    const z = map.getZoom();
+    // Hide all overlays to start
+    if (map.hasLayer(dotLayer)) map.removeLayer(dotLayer);
+    if (map.hasLayer(plainMarkerLayer)) map.removeLayer(plainMarkerLayer);
+    if (map.hasLayer(innDotLayer)) map.removeLayer(innDotLayer);
+    if (map.hasLayer(innPlainLayer)) map.removeLayer(innPlainLayer);
+
+    if (activeCategory === 'food') {
+      const n = pointsInViewCount();
+      let wantDense;
+      if (denseMode) wantDense = (z < DENSE_ZOOM_THRESHOLD) || (n > HYST_N_EXIT);
+      else wantDense = (z < DENSE_ZOOM_THRESHOLD) || (n > HYST_N_ENTER);
+      denseMode = wantDense;
+      if (wantDense) {
+        if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer);
+      } else {
+        if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer);
+        if (!map.hasLayer(plainMarkerLayer)) map.addLayer(plainMarkerLayer);
+        refreshPlainMarkersInView();
+      }
+    } else if (activeCategory === 'stay') {
+      // Inns logic mirrors restaurants
+      // Maintain separate denseMode for inns
+      if (typeof window._denseModeInn === 'undefined') window._denseModeInn = false;
+      const n = pointsInViewCountInn();
+      let wantDense;
+      if (window._denseModeInn) wantDense = (z < DENSE_ZOOM_THRESHOLD) || (n > HYST_N_EXIT);
+      else wantDense = (z < DENSE_ZOOM_THRESHOLD) || (n > HYST_N_ENTER);
+      window._denseModeInn = wantDense;
+      if (wantDense) {
+        if (!map.hasLayer(innDotLayer)) map.addLayer(innDotLayer);
+      } else {
+        if (!map.hasLayer(innDotLayer)) map.addLayer(innDotLayer);
+        if (!map.hasLayer(innPlainLayer)) map.addLayer(innPlainLayer);
+        refreshInnPlainMarkersInView();
+      }
     } else {
-      if (!map.hasLayer(dotLayer)) map.addLayer(dotLayer); // keep base dots
-      if (!map.hasLayer(plainMarkerLayer)) map.addLayer(plainMarkerLayer);
-      refreshPlainMarkersInView();
+      // tour/infra: leave only KRC overlay (handled separately); no restaurant/inn overlays
     }
   }
   // Initialize visibility + button state
@@ -549,14 +640,14 @@ async function init() {
     const r = desiredDotRadiusForZoom(z);
     if (currentDotRadius === r) return;
     currentDotRadius = r;
-    for (const p of allPoints) {
-      if (p.dotMarker) p.dotMarker.setRadius(r);
-    }
+    for (const p of allPoints) { if (p.dotMarker) p.dotMarker.setRadius(r); }
+    for (const p of innAllPoints) { if (p.dotMarker) p.dotMarker.setRadius(r); }
   }
   function handleViewChange() {
     updateClusterVisibility();
     applyDotRadius();
     if (map.hasLayer(plainMarkerLayer)) refreshPlainMarkersInView();
+    if (map.hasLayer(innPlainLayer)) refreshInnPlainMarkersInView();
   }
   map.on('zoomend moveend', handleViewChange);
   // initial dot radius
@@ -687,6 +778,36 @@ async function init() {
     if (krcAdded === 0) console.warn('No KRC points found in', KRC_CSV_PATH);
   } catch (err) {
     console.warn('KRC CSV load error', err);
+  }
+
+  // Load INN points (숙박) similar to restaurants
+  function addInnPoint(lat, lon, props) {
+    // base dot
+    const color = '#722F37'; // wine for inns by default
+    const mDot = L.circleMarker([lat, lon], { radius: 2.5, fillColor: color, fillOpacity: 1, stroke: false, interactive: false });
+    innDotLayer.addLayer(mDot);
+    const label = props.name || '';
+    innAllPoints.push({ lat, lon, props, color, label, showThumb: false, plainMarker: null, dotMarker: mDot });
+  }
+  function parseInnRows(rows) {
+    let count = 0;
+    rows.forEach((row) => {
+      const ll = resolveLatLng(row);
+      if (!ll) return;
+      const [lat, lon] = ll;
+      const name = getField(row, ['name', '이름', '시설명', '숙소명', '업체명']);
+      const address = getField(row, ['address', '주소', '도로명주소', '지번주소']);
+      addInnPoint(lat, lon, { name, address });
+      count++;
+    });
+    return count;
+  }
+  try {
+    const innRows = await parseCsvFromUrl(INN_CSV_PATH);
+    const innAdded = parseInnRows(innRows);
+    if (innAdded === 0) console.warn('No INN points found in', INN_CSV_PATH);
+  } catch (err) {
+    console.warn('INN CSV load error', err);
   }
 }
 

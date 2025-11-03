@@ -17,8 +17,7 @@ const tileLayers = {
 
 let map;
 let plainMarkerLayer;
-let dotLayer;
-let clusterEnabled = true; // kept for compatibility but not exposed in UI
+let dotLayer; // 5px dot without label (canvas)
 const DENSE_ZOOM_THRESHOLD = 12;
 const DENSE_POINT_THRESHOLD = 1000;
 let activeCategory = 'food';
@@ -30,7 +29,7 @@ let hasUserLocation = false;
 
 const DEFAULT_CSV_PATH = 'restaurant.csv';
 const KRC_CSV_PATH = 'krc.csv';
-// Using clustering; individual marker will be ultra-small
+// Density-based rendering; dot layer for dense view
 
 // 색상을 더 어둡게 만드는 함수
 function getDarkerColor(color) {
@@ -349,31 +348,21 @@ function addPoint(lat, lon, props) {
     else if (visits > 10) color = '#722F37'; // wine color (was pink)
   }
 
-  // Create two markers: one for clustering, one for plain view
+  // Dense-mode marker: lightweight canvas circle (5px)
+  const mDot = L.circleMarker([lat, lon], {
+    radius: 2.5,
+    fillColor: color,
+    fillOpacity: 1,
+    stroke: false,
+    interactive: false
+  });
+  if (!dotLayer) dotLayer = L.layerGroup();
+  dotLayer.addLayer(mDot);
+
+  // Save point; plain marker is created on-demand in sparse mode
   const label = props.name || '';
   const showThumb = Number.isFinite(visits) && visits > 100;
-  const mCluster = L.marker([lat, lon], { icon: L.divIcon({ className: '', html: `<div class=\"small-dot\" style=\"color:${color}\"></div>`, iconSize: [5,5], iconAnchor: [2.5,2.5] }), markerColor: color });
-  const mPlain = L.marker([lat, lon], { icon: createDivIcon(label, color, showThumb), markerColor: color });
-
-  // Bind popup to both
-  const popupHtmlStr = popupHtml(props, color);
-  const theme = `theme-${colorKeyFromColor(color)}`;
-  // no popup for dense dot
-
-  const popupPlain = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
-  popupPlain.setContent(popupHtmlStr);
-  mPlain.bindPopup(popupPlain);
-  mPlain.on('popupopen', () => {
-    const closeBtn = document.querySelector('.popup-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => mPlain.closePopup());
-  });
-
-  if (!dotLayer) dotLayer = L.layerGroup();
-  dotLayer.addLayer(mCluster);
-  if (!plainMarkerLayer) plainMarkerLayer = L.layerGroup();
-  plainMarkerLayer.addLayer(mPlain);
-
-  allPoints.push({ dotMarker: mCluster, plainMarker: mPlain, lat, lon });
+  allPoints.push({ lat, lon, props, color, label, showThumb, plainMarker: null });
 }
 
 // density toggle removed; clustering handles aggregation
@@ -437,6 +426,33 @@ async function init() {
     return c;
   }
 
+  function refreshPlainMarkersInView() {
+    if (!map || !plainMarkerLayer) return;
+    plainMarkerLayer.clearLayers();
+    const b = map.getBounds();
+    const MAX_PLAIN = 1200;
+    let added = 0;
+    for (const p of allPoints) {
+      if (added >= MAX_PLAIN) break;
+      if (!b.contains([p.lat, p.lon])) continue;
+      if (!p.plainMarker) {
+        const htmlColor = p.color;
+        p.plainMarker = L.marker([p.lat, p.lon], { icon: createDivIcon(p.label, htmlColor, p.showThumb), markerColor: htmlColor });
+        const popupHtmlStr = popupHtml(p.props, htmlColor);
+        const theme = `theme-${colorKeyFromColor(htmlColor)}`;
+        const popupPlain = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
+        popupPlain.setContent(popupHtmlStr);
+        p.plainMarker.bindPopup(popupPlain);
+        p.plainMarker.on('popupopen', () => {
+          const closeBtn = document.querySelector('.popup-close');
+          if (closeBtn) closeBtn.addEventListener('click', () => p.plainMarker && p.plainMarker.closePopup());
+        });
+      }
+      plainMarkerLayer.addLayer(p.plainMarker);
+      added++;
+    }
+  }
+
   function updateClusterVisibility() {
     // 맛집 외 카테고리는 베이스맵만 보이게 (레이어 숨김)
     if (activeCategory !== 'food') {
@@ -452,11 +468,15 @@ async function init() {
     } else {
       if (map.hasLayer(dotLayer)) map.removeLayer(dotLayer);
       if (!map.hasLayer(plainMarkerLayer)) map.addLayer(plainMarkerLayer);
+      refreshPlainMarkersInView();
     }
   }
   // Initialize visibility + button state
   updateClusterVisibility();
-  map.on('zoomend moveend', updateClusterVisibility);
+  map.on('zoomend moveend', () => {
+    updateClusterVisibility();
+    if (map.hasLayer(plainMarkerLayer)) refreshPlainMarkersInView();
+  });
 
   // Fixed 1px dots; no zoom-based scaling
 

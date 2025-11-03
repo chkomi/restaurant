@@ -404,3 +404,39 @@ html, body {
   background: var(--marker-color-dark, #5D4037); /* 조금 더 어두운 색상 */
   border-color: var(--marker-color-dark, #5D4037);
 }
+:root { --wine: #722F37; }
+/* Bottom search bar (above bottom nav) */
+.bottom-search {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  width: min(560px, calc(100% - 24px));
+  z-index: 1200;
+}
+.search-form {
+  display: flex;
+  background: rgba(255,255,255,0.96);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+  overflow: hidden;
+}
+.search-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #111;
+  background: transparent;
+}
+.search-input::placeholder { color: #9ca3af; }
+.search-btn {
+  border: none;
+  background: transparent;
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.search-form.loading { opacity: 0.6; pointer-events: none; }

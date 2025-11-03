@@ -408,7 +408,7 @@ async function init() {
 
   initTileButtons();
 
-  // 하단 내비게이션: 카테고리 선택 (맛집만 데이터 표시)
+  // 하단 내비게이션: 카테고리 선택 (맛집/숙박만 데이터 표시)
   const bottomNav = document.querySelector('.bottom-nav');
   if (bottomNav) {
     bottomNav.addEventListener('click', (e) => {
@@ -421,6 +421,55 @@ async function init() {
       activeCategory = btn.getAttribute('data-cat') || 'food';
       updateClusterVisibility();
     });
+  }
+
+  // 하단 검색창: 행정구역(시/도, 시/군/구, 읍/면/동/리)만 검색 → 해당 영역으로 이동
+  const searchForm = document.querySelector('.bottom-search .search-form');
+  const searchInput = document.querySelector('.bottom-search .search-input');
+  if (searchForm && searchInput) {
+    async function geocodeAdmin(q) {
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=kr&addressdetails=1&extratags=1&limit=5&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'ko' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const list = await res.json();
+      const allowed = new Set(['4','5','6','7','8','9','10']);
+      const filtered = (list || []).filter(r =>
+        (r.class === 'boundary' && r.type === 'administrative') &&
+        (r.extratags && r.extratags.admin_level && allowed.has(String(r.extratags.admin_level)))
+      );
+      return filtered;
+    }
+    async function onSearch(e) {
+      e.preventDefault();
+      const q = searchInput.value.trim();
+      if (!q) return;
+      searchForm.classList.add('loading');
+      try {
+        const results = await geocodeAdmin(q);
+        const r = results[0];
+        if (!r) {
+          alert('행정구역(시/도, 시/군/구, 읍/면/동/리)만 검색할 수 있습니다.');
+          return;
+        }
+        if (r.boundingbox) {
+          const [south, north, west, east] = r.boundingbox.map(Number);
+          const bounds = L.latLngBounds([ [south, west], [north, east] ]);
+          if (bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.05));
+            return;
+          }
+        }
+        if (r.lat && r.lon) {
+          map.setView([Number(r.lat), Number(r.lon)], Math.max(map.getZoom(), 12), { animate: true });
+        }
+      } catch(err) {
+        console.warn('Search error', err);
+        alert('검색 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+      } finally {
+        searchForm.classList.remove('loading');
+      }
+    }
+    searchForm.addEventListener('submit', onSearch);
   }
 
   // 클러스터 토글 버튼 바인딩

@@ -427,30 +427,37 @@ async function init() {
   const searchForm = document.querySelector('.bottom-search .search-form');
   const searchInput = document.querySelector('.bottom-search .search-input');
   if (searchForm && searchInput) {
-    async function geocodeAdminOnce(q) {
-      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=kr&addressdetails=1&extratags=1&limit=8&q=${encodeURIComponent(q)}`;
+    async function geocodeQuery(q) {
+      const params = new URLSearchParams({
+        format: 'jsonv2', countrycodes: 'kr', addressdetails: '1', polygon_geojson: '0', extratags: '1', limit: '10', q
+      });
+      const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
       const res = await fetch(url, { headers: { 'Accept-Language': 'ko' } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const list = await res.json();
-      const allowed = new Set(['4','5','6','7','8','9','10']);
-      const inKR = (r) => (r.address && r.address.country_code === 'kr') || (String(r.display_name||'').includes('대한민국'));
-      const isAdminBoundary = (r) => r.class === 'boundary' && r.type === 'administrative' && (
-        (r.extratags && r.extratags.admin_level && allowed.has(String(r.extratags.admin_level))) ||
-        (r.admin_level && allowed.has(String(r.admin_level)))
-      );
-      const isPlace = (r) => r.class === 'place' && ['city','county','district','town','village','hamlet','suburb','municipality'].includes(String(r.type));
-      const admins = (list || []).filter(r => inKR(r) && isAdminBoundary(r));
-      if (admins.length) return admins;
-      const places = (list || []).filter(r => inKR(r) && isPlace(r));
-      return places;
+      return await res.json();
+    }
+    function pickAdminCandidates(list) {
+      const adminTypes = new Set(['administrative']);
+      const placeTypes = new Set(['city','county','district','province','state','region','town','village','hamlet','borough','suburb','municipality']);
+      const inKR = (r) => !r.address || !r.address.country_code || r.address.country_code === 'kr';
+      const cand = (list||[]).filter(r => inKR(r) && ((r.class==='boundary' && adminTypes.has(r.type)) || (r.class==='place' && placeTypes.has(r.type))));
+      // prefer boundaries, then places, sort by importance desc
+      cand.sort((a,b)=> (a.class===b.class?0:(a.class==='boundary'?-1:1)) || (Number(b.importance||0)-Number(a.importance||0)) );
+      return cand;
     }
     async function geocodeAdmin(q) {
-      let r = await geocodeAdminOnce(q);
-      if (!r || r.length === 0) {
-        // retry with country bias appended
-        r = await geocodeAdminOnce(`${q} 대한민국`);
+      // try as-is
+      let list = pickAdminCandidates(await geocodeQuery(q));
+      if (list.length) return list;
+      // fallback: append country name
+      list = pickAdminCandidates(await geocodeQuery(`${q} 대한민국`));
+      if (list.length) return list;
+      // fallback: remove common suffixes and retry
+      const q2 = q.replace(/[\s]/g,'').replace(/(특별시|광역시|자치시|자치구|시|군|구|읍|면|동|리)$/,'');
+      if (q2 && q2 !== q) {
+        list = pickAdminCandidates(await geocodeQuery(q2));
       }
-      return r;
+      return list;
     }
     async function onSearch(e) {
       e.preventDefault();
@@ -459,7 +466,7 @@ async function init() {
       searchForm.classList.add('loading');
       try {
         const results = await geocodeAdmin(q);
-        const r = results[0];
+        const r = results && results[0];
         if (!r) {
           alert('행정구역(시/도, 시/군/구, 읍/면/동/리)만 검색할 수 있습니다.');
           return;

@@ -1019,7 +1019,16 @@ async function init() {
         }
       }
       const address = getField(row, ['address', '주소', '도로명주소', '지번주소']);
-      const visits = getField(row, ['방문횟수', '방문', 'count', 'counts', 'visits', 'visit']);
+      let visits = getField(row, ['횟수', '방문횟수', '방문', 'count', 'counts', 'visits', 'visit']);
+      if (!visits) {
+        // Fallback: last column value
+        const keys = Object.keys(row);
+        if (keys.length > 0) {
+          const kLast = keys[keys.length - 1];
+          const v = row[kLast];
+          if (v != null && String(v).trim() !== '') visits = String(v).trim();
+        }
+      }
       addInnPoint(lat, lon, { name, address, visits });
       count++;
     });

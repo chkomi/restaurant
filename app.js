@@ -29,6 +29,8 @@ let activeCategory = 'food';
 let krcLayer;
 let allPoints = [];      // restaurants
 let innAllPoints = [];   // inns
+let localAdminIndex = null; // optional local boundary index [{name, altNames, level, bbox:[s,w,n,e]}]
+let sggIndex = null; // local SGG (시군구) index from sgg.geojson (EPSG:5179)
 let userLocationMarker = null;
 let userAccuracyCircle = null;
 let hasUserLocation = false;
@@ -427,6 +429,106 @@ async function init() {
   const searchForm = document.querySelector('.bottom-search .search-form');
   const searchInput = document.querySelector('.bottom-search .search-input');
   if (searchForm && searchInput) {
+    // Load local admin index if present
+    (async () => {
+      try {
+        const res = await fetch('data/admin-index.json', { cache: 'no-cache' });
+        if (res.ok) localAdminIndex = await res.json();
+      } catch {}
+    })();
+
+    // Load local SGG GeoJSON (EPSG:5179) and build bbox index
+    (async () => {
+      try {
+        const tryPaths = ['sgg.geojson', 'data/sgg.geojson'];
+        let gj = null;
+        for (const p of tryPaths) {
+          try {
+            const r = await fetch(p, { cache: 'no-cache' });
+            if (r.ok) { gj = await r.json(); break; }
+          } catch {}
+        }
+        if (gj && typeof proj4 !== 'undefined') {
+          const def5179 = '+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs';
+          const toWgs = (xy) => {
+            const out = proj4(def5179, proj4.WGS84, xy);
+            return [out[1], out[0]]; // return [lat, lon]
+          };
+          const feats = Array.isArray(gj.features) ? gj.features : [];
+          const idx = [];
+          for (const f of feats) {
+            const prop = f.properties || {};
+            const name = prop.SIG_KOR_NM || prop.SGG_NM || prop.name || '';
+            const ctp = prop.CTP_KOR_NM || prop.SIDO || '';
+            // compute bbox in source CRS
+            let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+            const geom = f.geometry || {};
+            const coords = geom.coordinates || [];
+            const walk = (arr) => {
+              for (const it of arr) {
+                if (typeof it[0] === 'number' && typeof it[1] === 'number') {
+                  const x = Number(it[0]); const y = Number(it[1]);
+                  if (x < minx) minx = x; if (x > maxx) maxx = x;
+                  if (y < miny) miny = y; if (y > maxy) maxy = y;
+                } else if (Array.isArray(it)) walk(it);
+              }
+            };
+            walk(coords);
+            if (Number.isFinite(minx) && Number.isFinite(miny) && Number.isFinite(maxx) && Number.isFinite(maxy)) {
+              const sw = toWgs([minx, miny]);
+              const ne = toWgs([maxx, maxy]);
+              idx.push({
+                name: String(name || ''),
+                altNames: [String(ctp ? `${ctp} ${name}` : name)].filter(Boolean),
+                bbox: [sw[0], sw[1], ne[0], ne[1]] // [south, west, north, east]
+              });
+            }
+          }
+          sggIndex = idx;
+        }
+      } catch (err) {
+        console.warn('SGG index load error', err);
+      }
+    })();
+
+    function normalizeAdminQuery(q) {
+      return String(q||'')
+        .trim()
+        .replace(/[\s]/g, '')
+        .replace(/(특별시|광역시|자치시|자치구|시|군|구|읍|면|동|리)$/,'')
+        .toLowerCase();
+    }
+    function tryLocalSGG(q) {
+      if (!sggIndex) return null;
+      const nq = normalizeAdminQuery(q);
+      if (!nq) return null;
+      let best = null;
+      for (const item of sggIndex) {
+        const names = [item.name].concat(item.altNames||[]).map(s=>String(s||'').replace(/[\s]/g,'').toLowerCase());
+        if (names.find(n => n === nq || n.includes(nq) || nq.includes(n))) { best = item; break; }
+      }
+      return best;
+    }
+    function tryLocalAdmin(q) {
+      if (!localAdminIndex || !Array.isArray(localAdminIndex)) return null;
+      const nq = normalizeAdminQuery(q);
+      if (!nq) return null;
+      // exact or substring match against name/altNames
+      let best = null;
+      for (const item of localAdminIndex) {
+        const names = [item.name].concat(item.altNames||[]).map(s=>String(s||'').replace(/[\s]/g,'').toLowerCase());
+        const hit = names.find(n => n === nq || n.includes(nq) || nq.includes(n));
+        if (hit) {
+          if (!best) best = item;
+          else {
+            // prefer smaller admin level (more specific), or smaller area
+            const a = Number(item.level||99), b = Number(best.level||99);
+            if (a > b) best = item; // lower number is higher level; we want more specific (bigger a)
+          }
+        }
+      }
+      return best;
+    }
     async function geocodeQuery(q) {
       const params = new URLSearchParams({
         format: 'jsonv2', countrycodes: 'kr', addressdetails: '1', polygon_geojson: '0', extratags: '1', limit: '10', q
@@ -465,6 +567,23 @@ async function init() {
       if (!q) return;
       searchForm.classList.add('loading');
       try {
+        // Prefer local SGG boundaries, then generic local index
+        const localSgg = tryLocalSGG(q);
+        if (localSgg && Array.isArray(localSgg.bbox) && localSgg.bbox.length === 4) {
+          const [s,w,n,e] = localSgg.bbox.map(Number);
+          const bounds = L.latLngBounds([[s,w],[n,e]]);
+          if (bounds.isValid()) { map.fitBounds(bounds.pad(0.05)); return; }
+        }
+        // Generic local index (if provided)
+        const local = tryLocalAdmin(q);
+        if (local && Array.isArray(local.bbox) && local.bbox.length === 4) {
+          const [s,w,n,e] = local.bbox.map(Number);
+          const bounds = L.latLngBounds([[s,w],[n,e]]);
+          if (bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.05));
+            return;
+          }
+        }
         const results = await geocodeAdmin(q);
         const r = results && results[0];
         if (!r) {

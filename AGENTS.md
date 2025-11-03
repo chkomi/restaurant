@@ -53,8 +53,31 @@
 
 ## Performance Notes
 - **Canvas for dense dots** keeps rendering lightweight; no DOM/event overhead.
-- **On‑demand DOM** only for selected labels within viewport.
+- **On-demand DOM** only for selected labels within viewport.
 - **Debounced view updates** reduce thrashing during quick pans/zooms.
+
+## Local Boundary Index (Admin Search)
+- Purpose: Move the map to an administrative area (시/도, 시/군/구, 읍/면/동/리) without relying on external geocoders.
+- File: `data/admin-index.json` — JSON array of items, each with
+  - `name`: primary Korean name (e.g., `전라남도 나주시` or `나주시`)
+  - `altNames`: optional array of alternative names (e.g., `나주시`, `Naju-si`)
+  - `level`: optional numeric admin level (e.g., 4=시/도, 6=시/군/구, 8=읍/면/동, 10=리). Used only for tie‑breaks.
+  - `bbox`: `[south, west, north, east]` in degrees
+- Usage: On search submit, the app first tries a local match (normalized by trimming spaces and common suffixes). If a match is found, it calls `fitBounds` on the bbox. Otherwise it falls back to the online geocoder.
+- How to populate:
+  1) Obtain KR admin GeoJSONs (e.g., from 통계청/VWorld/행안부) for the levels you need.
+  2) Convert each feature to a record with `name`/`altNames` and a precomputed bbox.
+  3) Write them as a single JSON array to `data/admin-index.json`.
+- Example record:
+```
+{
+  "name": "나주시",
+  "altNames": ["전남 나주시", "Naju-si"],
+  "level": 6,
+  "bbox": [34.897, 126.530, 35.151, 126.902]
+}
+```
+- Note: The repository includes a tiny placeholder. Replace it with real data for full coverage.
 
 ## Commit & Pull Request Guidelines
 - Commits: follow Conventional Commits (e.g., `feat:`, `fix:`, `refactor:`). Keep messages concise and scoped.

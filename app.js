@@ -298,7 +298,7 @@ function createClusterDotIcon(color) {
   });
 }
 
-function popupHtml(props, color) {
+function popupHtml(props, color, categoryLabel = '식당') {
   const name = props.name || '';
   const menu = props.menu || '';
   const address = props.address || '';
@@ -314,7 +314,7 @@ function popupHtml(props, color) {
         <div class="popup-header">
           <div class="popup-title">${name || '이름 없음'}</div>
           ${menu ? `<div class="popup-subtitle">${menu}</div>` : ''}
-          <span class="popup-category-badge">식당</span>
+          <span class="popup-category-badge">${categoryLabel}</span>
         </div>
 
         <div class="popup-divider"></div>
@@ -507,7 +507,7 @@ async function init() {
       if (!p.plainMarker) {
         const htmlColor = p.color;
         p.plainMarker = L.marker([p.lat, p.lon], { icon: createDivIcon(p.label, htmlColor, p.showThumb), markerColor: htmlColor });
-        const popupHtmlStr = popupHtml(p.props, htmlColor);
+        const popupHtmlStr = popupHtml(p.props, htmlColor, '식당');
         const theme = `theme-${colorKeyFromColor(htmlColor)}`;
         const popupPlain = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
         popupPlain.setContent(popupHtmlStr);
@@ -579,7 +579,7 @@ async function init() {
       if (!p.plainMarker){
         const htmlColor = p.color;
         p.plainMarker = L.marker([p.lat,p.lon], { icon: createDivIcon(p.label, htmlColor, false), markerColor: htmlColor });
-        const popupHtmlStr = popupHtml(p.props, htmlColor);
+        const popupHtmlStr = popupHtml(p.props, htmlColor, '숙박');
         const theme = `theme-${colorKeyFromColor(htmlColor)}`;
         const pop = L.popup({ className: `custom-popup ${theme}`, closeButton: false });
         pop.setContent(popupHtmlStr);
